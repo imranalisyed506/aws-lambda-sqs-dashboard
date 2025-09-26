@@ -1,4 +1,7 @@
 "use client";
+import { SelfUpdateButton } from "@/components/ui/self-update-button";
+// ...existing code...
+// ...existing code...
 import {
   Accordion,
   AccordionItem,
@@ -13,6 +16,22 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import {
+  DEFAULT_PROFILE,
+  DEFAULT_REGION,
+  PROFILE_OPTIONS,
+  REGION_OPTIONS,
+  IMPORTANT_KEYS,
+  DEFAULT_COLUMNS,
+  PAGE_SIZE,
+  MAX_FRONTEND_MS,
+  SQS_RETRY_ATTEMPTS,
+  SQS_RETRY_DELAY,
+  LAMBDA_RETRY_ATTEMPTS,
+  LAMBDA_RETRY_DELAY,
+  COLLECTOR_SUMMARY_RETRY_ATTEMPTS,
+  COLLECTOR_SUMMARY_RETRY_DELAY
+} from "./config";
 
 // Utility to format relative time
 function formatRelativeTime(dateString: string) {
@@ -229,9 +248,9 @@ export default function Home() {
   const [retryDelay, setRetryDelay] = useState(0);
   const [selected, setSelected] = useState<any>(null);
   const [lambdaDetails, setLambdaDetails] = useState<any>(null);
-  const [regions, setRegions] = useState<string[]>(["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1"]);
+  const [regions, setRegions] = useState<string[]>(REGION_OPTIONS);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [filter, setFilter] = useState("");
   // Track selected collector type for highlighting
   const [selectedCollectorType, setSelectedCollectorType] = useState<string>("");
@@ -464,6 +483,15 @@ export default function Home() {
   let filteredLambdas = lambdas.filter((fn: any) => {
     if (!filter.trim()) return true;
     const lowerFilter = filter.toLowerCase();
+    // If filtering by collector type (chip clicked), only check collectorType
+    if (selectedCollectorType) {
+      // For Unknown, collectorType is '-' and Description not S3/Poll based collector or missing
+      if (selectedCollectorType === '-') {
+        return fn.collectorType === '-' && (!fn.Description || (fn.Description !== 'Alert Logic S3 collector' && fn.Description !== 'Alert Logic Poll based collector'));
+      }
+      return fn.collectorType === selectedCollectorType;
+    }
+    // Otherwise, filter by any visible column
     return visibleColumns.some(colKey => {
       let value = fn[colKey];
       if (colKey === "collectorType" && fn.Description === "Alert Logic S3 collector") {
@@ -513,6 +541,7 @@ export default function Home() {
               </span>
             ) : (
               <div className="flex flex-wrap gap-2 items-center">
+                {/* Fix chip count and filter for Unknown */}
                 {Object.keys(collectorSummary).length > 0 &&
                   Object.entries(collectorSummary)
                     .sort(([a], [b]) => {
@@ -520,19 +549,23 @@ export default function Home() {
                       if (a !== '-' && b === '-') return -1;
                       return a.localeCompare(b);
                     })
-                    .map(([type, count]) => (
-                      <button
-                        key={type}
-                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold border shadow-sm transition-all duration-150 focus:outline-none ${selectedCollectorType === type ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-indigo-100 text-indigo-800 border-indigo-200'}`}
-                        onClick={() => {
-                          setFilter(type === '-' ? '' : type);
-                          setSelectedCollectorType(type);
-                        }}
-                        aria-label={`Filter by ${type === '-' ? 'Unknown' : type}`}
-                      >
-                        {type === '-' ? 'Unknown' : type}: {count}
-                      </button>
-                    ))}
+                    .filter(([type]) => type !== '-') // Remove Unknown chip
+                    .map(([type, count]) => {
+                      const chipCount = lambdas.filter(fn => fn.collectorType === type).length;
+                      return (
+                        <button
+                          key={type}
+                          className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold border shadow-sm transition-all duration-150 focus:outline-none ${selectedCollectorType === type ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-indigo-100 text-indigo-800 border-indigo-200'}`}
+                          onClick={() => {
+                            setFilter(type);
+                            setSelectedCollectorType(type);
+                          }}
+                          aria-label={`Filter by ${type}`}
+                        >
+                          {type}: {chipCount}
+                        </button>
+                      );
+                    })}
                 {selectedCollectorType && (
                   <button
                     className="ml-2 px-2 py-1 rounded bg-stone-200 text-stone-700 text-xs font-semibold border border-stone-300 shadow-sm hover:bg-stone-300 transition-all duration-150"
@@ -784,42 +817,16 @@ export default function Home() {
                       <Button size="sm" variant="secondary" className="shadow" onClick={() => handleViewLogs(fn)}>
                         View 1Hr logs
                       </Button>
-                      <Button size="sm" variant="primary" className="bg-indigo-600 hover:bg-indigo-700 text-white shadow" onClick={async () => {
-                        setLoading(true);
-                        setError("");
-                        setSuccess("");
-                        try {
-                          const res = await fetch("/api/lambdas", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              selfUpdate: true,
-                              functionName: fn.FunctionName,
-                              profile,
-                              region
-                            })
-                          });
-                          const data = await res.json();
-                          if (!res.ok) throw new Error(data?.error || "SelfUpdate failed");
-                          setSuccess(`SelfUpdate triggered for ${fn.FunctionName}. Response: ${JSON.stringify(data)}`);
-                          // Re-fetch Lambdas after SelfUpdate
-                          try {
-                            const res2 = await fetch(`/api/lambdas?profile=${profile}&region=${region}&page=${page}&pageSize=${pageSize}`);
-                            if (!res2.ok) throw new Error("Failed to fetch Lambdas");
-                            const data2 = await res2.json();
-                            setLambdas(Array.isArray(data2.lambdas) ? data2.lambdas : []);
-                          } catch (err: any) {
-                            setLambdas([]);
-                            setError(err?.message || "Failed to load Lambdas after SelfUpdate.");
-                          }
-                          setLoading(false);
-                        } catch (err: any) {
-                          setError(err?.message || "Failed to trigger SelfUpdate.");
-                          setLoading(false);
-                        }
-                      }}>
-                        SelfUpdate
-                      </Button>
+                      <SelfUpdateButton
+                        fn={fn}
+                        profile={profile}
+                        region={region}
+                        page={page}
+                        pageSize={pageSize}
+                        setSuccess={setSuccess}
+                        setError={setError}
+                        setLambdas={setLambdas}
+                      />
                       {fn.Environment?.Variables?.paws_state_queue_url ? (
                         <Button size="sm" variant="secondary" className="shadow" onClick={() => handlePollSqs(fn)}>
                           Poll SQS

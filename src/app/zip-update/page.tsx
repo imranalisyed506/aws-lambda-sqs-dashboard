@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Alert } from "@/components/ui/alert";
 
+import { PROFILE_OPTIONS } from "../config";
 
 export default function ZipUpdatePage() {
   const [zipFiles, setZipFiles] = useState<string[]>([]);
@@ -16,9 +17,9 @@ export default function ZipUpdatePage() {
   const [showAlert, setShowAlert] = useState(false);
   const [alertType, setAlertType] = useState<"success"|"error">("success");
   const [loading, setLoading] = useState(false);
-  const [profileS3, setProfileS3] = useState("playground");
-  const [profileLambda, setProfileLambda] = useState("paws_integration");
-  const profiles = ["playground", "paws_integration", "paws"];
+  const [profileS3, setProfileS3] = useState(PROFILE_OPTIONS[0]);
+  const [profileLambda, setProfileLambda] = useState(PROFILE_OPTIONS[1] || PROFILE_OPTIONS[0]);
+  const profiles = PROFILE_OPTIONS;
 
   async function fetchZipFiles() {
     setLoading(true);

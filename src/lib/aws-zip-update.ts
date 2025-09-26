@@ -1,13 +1,14 @@
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { PROFILE_OPTIONS, REGION_OPTIONS } from "../app/config";
 import { LambdaClient, ListFunctionsCommand, GetFunctionConfigurationCommand, UpdateFunctionCodeCommand } from "@aws-sdk/client-lambda";
 import { fromIni } from "@aws-sdk/credential-providers";
 
 // Default profiles, but allow override via function params
-const DEFAULT_PROFILE_LAMBDA = "paws_integration";
-const DEFAULT_PROFILE_S3 = "playground";
-const REGION = "us-east-1";
-const S3_BUCKET = "rcs-alertlogic-collectors-us-east-1";
-const S3_PREFIX = "packages/lambda/";
+const DEFAULT_PROFILE_LAMBDA = PROFILE_OPTIONS[1] || PROFILE_OPTIONS[0];
+const DEFAULT_PROFILE_S3 = PROFILE_OPTIONS[0];
+const REGION = REGION_OPTIONS[0];
+const S3_BUCKET = process.env.NEXT_PUBLIC_S3_BUCKET || "rcs-alertlogic-collectors-us-east-1";
+const S3_PREFIX = process.env.NEXT_PUBLIC_S3_PREFIX || "packages/lambda/";
 
 export async function listS3ZipFiles(profileS3?: string) {
   const s3 = new S3Client({ region: REGION, credentials: fromIni({ profile: profileS3 || DEFAULT_PROFILE_S3 }) });
