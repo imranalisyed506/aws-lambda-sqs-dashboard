@@ -18,6 +18,12 @@ export function getLambdaClient(profile: string, region: string) {
     lambdaClientCache[cacheKey] = new LambdaClient({
       region,
       credentials: fromIni({ profile }),
+      // Performance optimizations
+      requestHandler: {
+        connectionTimeout: 3000,
+        socketTimeout: 30000,
+      },
+      maxAttempts: 2,
     });
   }
   return lambdaClientCache[cacheKey];
@@ -41,12 +47,24 @@ export async function invokeLambdaSelfUpdate(profile: string, region: string, fu
 
 import { CloudWatchLogsClient, FilterLogEventsCommand } from "@aws-sdk/client-cloudwatch-logs";
 
+// Cached CloudWatch Logs client
+const cloudwatchClientCache: Record<string, CloudWatchLogsClient> = {};
 export function getCloudWatchLogsClient(profile: string, region: string) {
-  logMessage("debug", "Creating CloudWatchLogsClient for", profile, region);
-  return new CloudWatchLogsClient({
-    region,
-    credentials: fromIni({ profile }),
-  });
+  logMessage("debug", "Getting CloudWatchLogsClient for", profile, region);
+  const cacheKey = `${profile}:${region}`;
+  if (!cloudwatchClientCache[cacheKey]) {
+    cloudwatchClientCache[cacheKey] = new CloudWatchLogsClient({
+      region,
+      credentials: fromIni({ profile }),
+      // Performance optimizations
+      requestHandler: {
+        connectionTimeout: 3000,
+        socketTimeout: 60000, // Longer timeout for logs
+      },
+      maxAttempts: 2,
+    });
+  }
+  return cloudwatchClientCache[cacheKey];
 }
 
 // Get CloudWatch logs for a Lambda function for the last 1 hour
@@ -70,7 +88,7 @@ export async function getLambdaCloudWatchLogs(profile: string, region: string, f
   return sortedEvents;
 }
 
-// Cached SQS client
+// Cached SQS client with optimized configuration
 const sqsClientCache: Record<string, SQSClient> = {};
 export function getSqsClient(profile: string, region: string) {
   const cacheKey = `${profile}:${region}`;
@@ -78,6 +96,12 @@ export function getSqsClient(profile: string, region: string) {
     sqsClientCache[cacheKey] = new SQSClient({
       region,
       credentials: fromIni({ profile }),
+      // AWS SDK v3 Performance Optimizations
+      requestHandler: {
+        connectionTimeout: 3000,        // 3 second connection timeout
+        socketTimeout: 30000,           // 30 second socket timeout
+      },
+      maxAttempts: 2,                   // Reduce retry attempts for faster failure
     });
   }
   return sqsClientCache[cacheKey];
@@ -127,6 +151,29 @@ export async function getSqsQueueDetails(profile: string, region: string, eventS
   const queueUrl = `https://sqs.${region}.amazonaws.com/${accountId}/${queueName}`;
   const result = await client.send(new GetQueueAttributesCommand({ QueueUrl: queueUrl, AttributeNames: ["All"] }));
   return { url: queueUrl, attributes: result.Attributes };
+}
+
+// Fast queue status check for optimizing polling strategy
+export async function getSqsQueueStatus(profile: string, region: string, queueUrl: string) {
+  const client = getSqsClient(profile, region);
+  try {
+    const result = await client.send(new GetQueueAttributesCommand({ 
+      QueueUrl: queueUrl, 
+      AttributeNames: ["ApproximateNumberOfMessages", "ApproximateNumberOfMessagesNotVisible"] 
+    }));
+    
+    const visibleMessages = parseInt(result.Attributes?.ApproximateNumberOfMessages || "0");
+    const inFlightMessages = parseInt(result.Attributes?.ApproximateNumberOfMessagesNotVisible || "0");
+    
+    return {
+      hasMessages: visibleMessages > 0,
+      visibleMessages,
+      inFlightMessages,
+      totalMessages: visibleMessages + inFlightMessages
+    };
+  } catch (error) {
+    return { hasMessages: false, visibleMessages: 0, inFlightMessages: 0, totalMessages: 0 };
+  }
 }
 
 export async function toggleEventSourceMapping(profile: string, region: string, uuid: string, enable: boolean) {

@@ -35,20 +35,36 @@ export default function Home() {
   const [region, setRegion] = useState("us-east-1");
   const [collectorSummary, setCollectorSummary] = useState<Record<string, number>>({});
   useEffect(() => {
-    async function fetchCollectorSummary() {
+    let cancelled = false;
+    async function fetchCollectorSummaryWithRetry(attempt = 0) {
       setCollectorSummaryLoading(true);
+      setRetryCount(attempt);
+      setRetryDelay(0);
       try {
         const res = await fetch(`/api/collector-summary?profile=${profile}&region=${region}`);
+        if (res.status === 429) {
+          setError({ status: 429, message: "AWS rate limit exceeded. Retrying automatically..." });
+          setRetryDelay(4000);
+          if (attempt < 2) {
+            setTimeout(() => {
+              if (!cancelled) fetchCollectorSummaryWithRetry(attempt + 1);
+            }, 4000);
+            return;
+          }
+        }
         if (!res.ok) throw new Error("Failed to fetch collector summary");
         const data = await res.json();
         setCollectorSummary(data.collectorCounts || {});
-      } catch {
+        setError(null);
+      } catch (err: any) {
         setCollectorSummary({});
+        setError({ status: err.status || 500, message: err.message || "Failed to fetch collector summary." });
       } finally {
         setCollectorSummaryLoading(false);
       }
     }
-    fetchCollectorSummary();
+    fetchCollectorSummaryWithRetry();
+    return () => { cancelled = true; };
   }, [profile, region]);
   // Flyout state for viewing env vars and logs
   const [flyoutType, setFlyoutType] = useState<"env"|"logs"|"sqs"|null>(null);
@@ -57,14 +73,17 @@ export default function Home() {
   // SQS Poll flyout state
   const [sqsMessage, setSqsMessage] = useState<any>(null);
   const [sqsLoading, setSqsLoading] = useState(false);
+  const [sqsProgress, setSqsProgress] = useState<{timeElapsed: number, strategy: string, pollCount: number} | null>(null);
   const sqsAbortControllerRef = useRef<AbortController | null>(null);
 
   // Handler to open SQS poll flyout
   async function handlePollSqs(lambda: any) {
-    setSqsMessage(null);
+    setSqsMessage({ messages: [] });
     setSqsLoading(true);
+    setSqsProgress(null);
     setFlyoutType("sqs");
     setFlyoutLambda(lambda);
+    const maxFrontendMs = 300000; // 5 minutes
     const queueUrl = lambda?.Environment?.Variables?.paws_state_queue_url;
     if (!queueUrl) {
       setSqsMessage({ error: "No paws_state_queue_url found in environment variables." });
@@ -74,34 +93,114 @@ export default function Home() {
     // AbortController for stop polling
     const abortController = new AbortController();
     sqsAbortControllerRef.current = abortController;
-    try {
-      const res = await fetch("/api/sqs-poll", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          profile,
-          region: lambda.Region || region,
-          queueUrl
-        }),
-        signal: abortController.signal
-      });
-      const data = await res.json();
-      setSqsMessage(data);
-    } catch (err: any) {
-      if (err?.name === "AbortError") {
-        setSqsMessage({ error: "Polling stopped by user." });
-      } else {
-        setSqsMessage({ error: err?.message || "Failed to poll SQS." });
+    // Start progress tracking
+    const startTime = Date.now();
+    const progressInterval = setInterval(() => {
+      if (!sqsAbortControllerRef.current) {
+        clearInterval(progressInterval);
+        return;
+      }
+      setSqsProgress(prev => ({
+        ...prev,
+        timeElapsed: Date.now() - startTime,
+        strategy: prev?.strategy || 'initializing',
+        pollCount: prev?.pollCount || 0
+      }));
+    }, 500);
+    let attempts = 0;
+    let lastError = null;
+    while (attempts < 3) {
+      try {
+        // Add frontend timeout (5 minutes, matches backend)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Frontend timeout: Polling took too long')), maxFrontendMs);
+        });
+        const fetchPromise = fetch("/api/sqs-poll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profile,
+            region: lambda.Region || region,
+            queueUrl
+          }),
+          signal: abortController.signal
+        });
+        const res = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+        if (res.status === 429) {
+          setError({ status: 429, message: "AWS rate limit exceeded. Retrying automatically..." });
+          setRetryCount(attempts + 1);
+          setRetryDelay(4000);
+          await new Promise(resolve => setTimeout(resolve, 4000));
+          attempts++;
+          continue;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const data = await res.json();
+        setSqsProgress({
+          timeElapsed: data.timeElapsed || (Date.now() - startTime),
+          strategy: data.strategy || 'completed',
+          pollCount: data.pollCount || 0
+        });
+        setSqsMessage((prev: any) => {
+          if (!prev || !Array.isArray(prev.messages)) return data;
+          const newMessages = Array.isArray(data.messages) ? data.messages : [];
+          const allMessages = [...prev.messages, ...newMessages].filter((msg, idx, arr) =>
+            msg.MessageId ? arr.findIndex(m => m.MessageId === msg.MessageId) === idx : true
+          );
+          return { ...data, messages: allMessages };
+        });
+        setError(null);
+        break;
+      } catch (err: any) {
+        lastError = err;
+        if (err?.name === "AbortError") {
+          setSqsMessage({ error: "Polling stopped by user." });
+          setSqsProgress({
+            timeElapsed: Date.now() - startTime,
+            strategy: 'aborted',
+            pollCount: 0
+          });
+          break;
+        } else if (err?.message?.includes('Frontend timeout')) {
+          setSqsMessage({ error: "Polling timed out after 5 minutes. This may indicate network issues or a very slow queue." });
+          setSqsProgress({
+            timeElapsed: maxFrontendMs,
+            strategy: 'timeout',
+            pollCount: 0
+          });
+          break;
+        } else if (err?.status === 429 || (err?.message && err.message.includes('429'))) {
+          setError({ status: 429, message: "AWS rate limit exceeded. Retrying automatically..." });
+          setRetryCount(attempts + 1);
+          setRetryDelay(4000);
+          await new Promise(resolve => setTimeout(resolve, 4000));
+          attempts++;
+          continue;
+        } else {
+          setSqsMessage({ error: err?.message || "Failed to poll SQS." });
+          setSqsProgress({
+            timeElapsed: Date.now() - startTime,
+            strategy: 'error',
+            pollCount: 0
+          });
+          setError({ status: err.status || 500, message: err.message || "Failed to poll SQS." });
+          break;
+        }
       }
     }
     setSqsLoading(false);
     sqsAbortControllerRef.current = null;
+    clearInterval(progressInterval);
+    if (attempts === 3 && lastError) {
+      setError({ status: 429, message: "AWS rate limit exceeded. Please try again later." });
+    }
   }
 
   function handleStopSqsPolling() {
     if (sqsAbortControllerRef.current) {
       sqsAbortControllerRef.current.abort();
     }
+    setSqsProgress(null);
   }
 
   // Table and dashboard state
@@ -125,13 +224,17 @@ export default function Home() {
   ];
   const importantKeys = ["FunctionName", "Description", "Runtime", "MemorySize", "LastModified", "collectorType"];
   const [visibleColumns, setVisibleColumns] = useState<string[]>(importantKeys);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState<any>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [retryDelay, setRetryDelay] = useState(0);
   const [selected, setSelected] = useState<any>(null);
   const [lambdaDetails, setLambdaDetails] = useState<any>(null);
   const [regions, setRegions] = useState<string[]>(["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1"]);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [filter, setFilter] = useState("");
+  // Track selected collector type for highlighting
+  const [selectedCollectorType, setSelectedCollectorType] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
   // State for editing environment variables (must be after envVars)
@@ -231,22 +334,37 @@ export default function Home() {
   }, []);
   useEffect(() => {
     setLoading(true);
-    setError("");
-    async function fetchLambdas() {
+    setError(null);
+    let cancelled = false;
+    async function fetchLambdasWithRetry(attempt = 0) {
+      setRetryCount(attempt);
+      setRetryDelay(0);
       try {
         const res = await fetch(`/api/lambdas?profile=${profile}&region=${region}`);
+        if (res.status === 429) {
+          setError({ status: 429, message: "AWS rate limit exceeded. Retrying automatically..." });
+          setRetryDelay(4000);
+          if (attempt < 2) {
+            setTimeout(() => {
+              if (!cancelled) fetchLambdasWithRetry(attempt + 1);
+            }, 4000);
+            return;
+          }
+        }
         if (!res.ok) throw new Error("Failed to fetch Lambdas");
         const data = await res.json();
         setLambdas(Array.isArray(data.lambdas) ? data.lambdas : []);
         setTotalLambdaCount(Array.isArray(data.lambdas) ? data.lambdas.length : 0);
+        setError(null);
       } catch (err: any) {
         setLambdas([]);
         setTotalLambdaCount(0);
-        setError(err?.message || "Failed to load Lambdas.");
+        setError({ status: err.status || 500, message: err.message || "Failed to load Lambdas." });
       }
       setLoading(false);
     }
-    fetchLambdas();
+    fetchLambdasWithRetry();
+    return () => { cancelled = true; };
   }, [profile, region]);
   // Only fetch logs when a new Lambda is selected for logs, not on every flyoutType/profile/region change
   const lastLogsLambdaRef = useRef<any>(null);
@@ -291,14 +409,26 @@ export default function Home() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/lambdas?profile=${profile}&region=${region}&functionName=${fn.FunctionName}`);
+      // Add timeout to lambda details fetching
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+      
+      const res = await fetch(`/api/lambdas?profile=${profile}&region=${region}&functionName=${fn.FunctionName}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
       if (!res.ok) throw new Error("Failed to fetch Lambda details");
       const data = await res.json();
       setLambdaDetails(data);
       setEnvVars(data?.config?.Environment?.Variables || {});
     } catch (err: any) {
       setLambdaDetails(null);
-      setError(err?.message || "Failed to load Lambda details.");
+      if (err?.name === 'AbortError') {
+        setError("Request timed out after 20 seconds. Please try again.");
+      } else {
+        setError(err?.message || "Failed to load Lambda details.");
+      }
     }
     setLoading(false);
   }
@@ -382,7 +512,7 @@ export default function Home() {
                 Loading summary...
               </span>
             ) : (
-              <>
+              <div className="flex flex-wrap gap-2 items-center">
                 {Object.keys(collectorSummary).length > 0 &&
                   Object.entries(collectorSummary)
                     .sort(([a], [b]) => {
@@ -391,14 +521,34 @@ export default function Home() {
                       return a.localeCompare(b);
                     })
                     .map(([type, count]) => (
-                      <span key={type} className="inline-flex items-center px-2 py-1 rounded bg-indigo-100 text-indigo-800 text-xs font-semibold border border-indigo-200 shadow-sm">
+                      <button
+                        key={type}
+                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold border shadow-sm transition-all duration-150 focus:outline-none ${selectedCollectorType === type ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-indigo-100 text-indigo-800 border-indigo-200'}`}
+                        onClick={() => {
+                          setFilter(type === '-' ? '' : type);
+                          setSelectedCollectorType(type);
+                        }}
+                        aria-label={`Filter by ${type === '-' ? 'Unknown' : type}`}
+                      >
                         {type === '-' ? 'Unknown' : type}: {count}
-                      </span>
+                      </button>
                     ))}
+                {selectedCollectorType && (
+                  <button
+                    className="ml-2 px-2 py-1 rounded bg-stone-200 text-stone-700 text-xs font-semibold border border-stone-300 shadow-sm hover:bg-stone-300 transition-all duration-150"
+                    onClick={() => {
+                      setFilter("");
+                      setSelectedCollectorType("");
+                    }}
+                    aria-label="Clear collector type filter"
+                  >
+                    Clear All
+                  </button>
+                )}
                 {Object.keys(collectorSummary).length === 0 && (
                   <span className="text-xs text-stone-400">No collector data</span>
                 )}
-              </>
+              </div>
             )}
           </div>
           <span className="font-medium text-xs text-indigo-700 bg-indigo-50 rounded px-2 py-1 border border-indigo-100 shadow-sm min-h-[24px] flex items-center justify-center">
@@ -407,12 +557,45 @@ export default function Home() {
         </div>
       </div>
     </div>
+    {/* Inline loaders for each component */}
+    {/* Table loader */}
+    <div className="relative w-full max-w-7xl overflow-auto flex justify-center px-2 py-4">
+      {/* ...existing table code... */}
+    </div>
+    {/* Flyout loaders for logs and SQS */}
+    {flyoutType === "logs" && logsLoading && (
+      <div className="flex items-center justify-center py-4">
+        <svg className="animate-spin h-5 w-5 text-indigo-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        </svg>
+        <span className="text-indigo-700">Loading logs...</span>
+      </div>
+    )}
+    {flyoutType === "sqs" && sqsLoading && (
+      <div className="flex items-center justify-center py-4">
+        <svg className="animate-spin h-5 w-5 text-indigo-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        </svg>
+        <span className="text-indigo-700">Polling SQS messages...</span>
+      </div>
+    )}
     {error && (
-      <div className="w-full max-w-2xl flex justify-center mb-2">
-        <Alert variant="error" className="w-full">
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+      <div className="w-full max-w-2xl flex flex-col items-center justify-center mb-2">
+        <Alert variant={error?.status === 429 ? "warning" : "error"} className="w-full">
+          <AlertTitle>
+            {error?.status === 429 ? "Rate Limit Exceeded" : "Error"}
+          </AlertTitle>
+          <AlertDescription>
+            {error?.status === 429
+              ? "AWS rate limit exceeded. Retrying automatically..."
+              : error?.message || error}
+          </AlertDescription>
         </Alert>
+        {error?.status === 429 && retryDelay > 0 && (
+          <div className="mt-2 text-sm text-stone-600 animate-pulse">Retrying in {retryDelay / 1000} seconds... (Attempt {retryCount}/3)</div>
+        )}
       </div>
     )}
     {success && (
@@ -423,6 +606,15 @@ export default function Home() {
         </Alert>
       </div>
     )}
+    {/* <div className="w-full max-w-4xl mb-4 px-4 py-3 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+      <div className="flex items-center justify-center text-sm text-blue-800">
+        <svg className="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+        <span className="font-medium">Performance Optimized!</span>
+        <span className="ml-2">SQS polling now 90% faster • Intelligent queue detection • Enhanced timeouts</span>
+      </div>
+    </div> */}
     <div className="w-full max-w-4xl mb-8 px-6 py-6 rounded-2xl shadow-lg bg-white flex flex-col items-center">
       <div className="flex gap-2 items-end justify-center w-full mt-2 mx-auto">
         <div className="flex flex-col gap-1 min-w-[90px]">
@@ -799,19 +991,117 @@ export default function Home() {
             )}
           </div>
           {sqsLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <svg className="animate-spin h-5 w-5 text-indigo-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-              </svg>
-              <span className="text-indigo-700">Polling SQS (up to 5 minutes)...</span>
+            <div className="space-y-4">
+              <div className="flex items-center justify-center py-2">
+                <svg className="animate-spin h-5 w-5 text-indigo-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <span className="text-indigo-700">Polling SQS messages...</span>
+              </div>
+              
+              {/* Progress Information */}
+              {sqsProgress && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="font-medium text-blue-800">Time Elapsed:</span>
+                      <div className="text-blue-600">
+                        {Math.round(sqsProgress.timeElapsed / 1000)}s / 300s max
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-medium text-blue-800">Strategy:</span>
+                      <div className="text-blue-600 capitalize">
+                        {sqsProgress.strategy.replace('-', ' ')}
+                        {sqsProgress.pollCount > 0 && ` (${sqsProgress.pollCount} polls)`}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="mt-3">
+                    <div className="w-full bg-blue-100 rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min((sqsProgress.timeElapsed / 300000) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  {/* Strategy explanation */}
+                  <div className="mt-2 text-xs text-blue-600">
+                    {sqsProgress.strategy === 'initializing' && 'Checking queue status...'}
+                    {sqsProgress.strategy === 'no-messages' && 'Queue appears empty, skipping polling'}
+                    {sqsProgress.strategy === 'quick-poll' && 'Found messages immediately'}
+                    {sqsProgress.strategy === 'long-poll' && 'Using optimized long polling'}
+                    {sqsProgress.strategy === 'completed' && 'Polling completed'}
+                  </div>
+                </div>
+              )}
+              
+              <div className="text-center text-xs text-gray-500">
+                Optimized polling with intelligent queue detection.<br/>
+                Maximum wait time: 5 minutes (matches backend polling duration)
+              </div>
             </div>
           ) : sqsMessage ? (
             sqsMessage.error ? (
-              <div className="text-red-600 font-semibold">{sqsMessage.error}</div>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="text-red-600 font-semibold mb-2">❌ Polling Error</div>
+                <div className="text-red-700 text-sm mb-2">{sqsMessage.error}</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-red-700">
+                  {sqsMessage.awsError && (
+                    <div><span className="font-semibold">AWS Error:</span> {sqsMessage.awsError}</div>
+                  )}
+                  {sqsMessage.awsMessage && (
+                    <div><span className="font-semibold">AWS Message:</span> {sqsMessage.awsMessage}</div>
+                  )}
+                  {sqsMessage.profile && (
+                    <div><span className="font-semibold">Profile:</span> {sqsMessage.profile}</div>
+                  )}
+                  {sqsMessage.region && (
+                    <div><span className="font-semibold">Region:</span> {sqsMessage.region}</div>
+                  )}
+                  {sqsMessage.queueUrl && (
+                    <div><span className="font-semibold">Queue URL:</span> {sqsMessage.queueUrl}</div>
+                  )}
+                  {sqsMessage.time && (
+                    <div><span className="font-semibold">Time:</span> {sqsMessage.time}</div>
+                  )}
+                  {sqsMessage.stack && (
+                    <div className="col-span-2"><span className="font-semibold">Stack Trace:</span><pre className="bg-red-100 rounded p-2 overflow-x-auto text-xs mt-1">{sqsMessage.stack}</pre></div>
+                  )}
+                </div>
+                {sqsProgress && (
+                  <div className="mt-3 text-xs text-red-500">
+                    Time elapsed: {Math.round(sqsProgress.timeElapsed / 1000)}s | 
+                    Strategy: {sqsProgress.strategy} | 
+                    Polls: {sqsProgress.pollCount}
+                  </div>
+                )}
+                <div className="mt-3 text-xs text-red-700">
+                  <strong>Troubleshooting:</strong> Check AWS credentials, profile, region, and queue URL. See error details above for more information.
+                </div>
+              </div>
             ) : Array.isArray(sqsMessage.messages) && sqsMessage.messages.length > 0 ? (
               <>
-                <div className="mb-2 text-xs text-stone-600">SQS messages received ({sqsMessage.messages.length}):</div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <div className="text-green-800 font-semibold mb-2">
+                    ✅ Found {sqsMessage.messages.length} SQS message{sqsMessage.messages.length !== 1 ? 's' : ''}
+                  </div>
+                  {sqsProgress && (
+                    <div className="text-xs text-green-600">
+                      Retrieved in {Math.round(sqsProgress.timeElapsed / 1000)}s using {sqsProgress.strategy.replace('-', ' ')} strategy
+                      {sqsProgress.pollCount > 0 && ` (${sqsProgress.pollCount} polls)`}
+                    </div>
+                  )}
+                  {sqsMessage.queueStatus && (
+                    <div className="text-xs text-green-600 mt-1">
+                      Queue status: {sqsMessage.queueStatus.visibleMessages} visible, {sqsMessage.queueStatus.inFlightMessages} in-flight messages
+                    </div>
+                  )}
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border rounded-xl overflow-hidden max-w-3xl">
                     <thead className="bg-stone-100 sticky top-0 z-10">
@@ -834,7 +1124,31 @@ export default function Home() {
                 </div>
               </>
             ) : (
-              <span className="text-stone-500">No SQS messages found after 5 minutes of polling.</span>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="text-yellow-800 font-semibold mb-2">📭 No Messages Found</div>
+                <div className="text-yellow-700 text-sm mb-2">
+                  No SQS messages found after polling
+                  {sqsProgress && ` (${Math.round(sqsProgress.timeElapsed / 1000)}s using ${sqsProgress.strategy.replace('-', ' ')} strategy)`}
+                </div>
+                {sqsMessage.queueStatus && (
+                  <div className="text-xs text-yellow-600 mt-2">
+                    Queue status: {sqsMessage.queueStatus.visibleMessages} visible messages, {sqsMessage.queueStatus.inFlightMessages} in-flight
+                  </div>
+                )}
+                {sqsProgress && (
+                  <div className="mt-2 text-xs text-yellow-700">
+                    Polls: {sqsProgress.pollCount} | Strategy: {sqsProgress.strategy}
+                  </div>
+                )}
+                <div className="mt-2 text-xs text-yellow-700">
+                  <strong>Diagnostics:</strong>
+                  {sqsMessage.profile && <div>Profile: {sqsMessage.profile}</div>}
+                  {sqsMessage.region && <div>Region: {sqsMessage.region}</div>}
+                  {sqsMessage.queueUrl && <div>Queue URL: {sqsMessage.queueUrl}</div>}
+                  {sqsMessage.time && <div>Time: {sqsMessage.time}</div>}
+                  {sqsMessage.lastError && <div>Last Error: {sqsMessage.lastError}</div>}
+                </div>
+              </div>
             )
           ) : (
             <span className="text-stone-500">No SQS message found.</span>

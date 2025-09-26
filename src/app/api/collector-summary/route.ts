@@ -7,18 +7,25 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const profile = searchParams.get("profile") || "default";
   const region = searchParams.get("region") || "us-east-1";
-  const credentials = fromIni({ profile });
-  const lambdas = await listLambdasBatch(region, credentials, 0, 1000); // fetch up to 1000
-  // For each lambda, get collectorType from env vars or Description
-  const collectorCounts: Record<string, number> = {};
-  for (const fn of lambdas) {
-    let type = "-";
-    if (fn.Description === "Alert Logic S3 collector") {
-      type = "s3-collector";
-    } else {
-      type = fn.Environment?.Variables?.paws_type_name || "-";
+    try {
+      const credentials = fromIni({ profile });
+      const lambdas = await listLambdasBatch(region, credentials, 0, 1000); // fetch up to 1000
+      // For each lambda, get collectorType from env vars or Description
+      const collectorCounts: Record<string, number> = {};
+      for (const fn of lambdas) {
+        let type = "-";
+        if (fn.Description === "Alert Logic S3 collector") {
+          type = "s3-collector";
+        } else {
+          type = fn.Environment?.Variables?.paws_type_name || "-";
+        }
+        collectorCounts[type] = (collectorCounts[type] || 0) + 1;
+      }
+      return NextResponse.json({ collectorCounts });
+    } catch (err: any) {
+      if (err?.name === 'TooManyRequestsException' || err?.Reason === 'CallerRateLimitExceeded') {
+        return NextResponse.json({ error: 'AWS rate limit exceeded. Please try again later.' }, { status: 429 });
+      }
+      return NextResponse.json({ error: err?.message || 'Failed to fetch collector summary.' }, { status: 500 });
     }
-    collectorCounts[type] = (collectorCounts[type] || 0) + 1;
-  }
-  return NextResponse.json({ collectorCounts });
 }

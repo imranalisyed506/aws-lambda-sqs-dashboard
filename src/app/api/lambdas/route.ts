@@ -14,15 +14,10 @@ export async function GET(req: NextRequest) {
 
   if (functionName && logs === "1") {
     // Fetch CloudWatch logs for this Lambda function
-    try {
-      logMessage("info", "API: Fetching CloudWatch logs for", functionName, profile, region);
-      const logEvents = await getLambdaCloudWatchLogs(profile, region, functionName);
-      logMessage("debug", "API: CloudWatch logs result", logEvents);
-      return NextResponse.json({ logs: logEvents });
-    } catch (err: any) {
-      logMessage("error", "API: Error fetching CloudWatch logs", err);
-      return NextResponse.json({ error: err.message }, { status: 500 });
-    }
+    logMessage("info", "API: Fetching CloudWatch logs for", functionName, profile, region);
+    const logEvents = await getLambdaCloudWatchLogs(profile, region, functionName);
+    logMessage("debug", "API: CloudWatch logs result", logEvents);
+    return NextResponse.json({ logs: logEvents });
   }
 
   if (functionName) {
@@ -50,18 +45,27 @@ export async function GET(req: NextRequest) {
   const credentials = fromIni({ profile });
   // Fetch all Lambdas and SQS queues in parallel (no pagination)
   logMessage("info", "API: Fetching ALL Lambdas and SQS queues", { region, profile });
-  const [lambdasRaw, sqsQueues] = await Promise.all([
-    (async () => {
-      const client = new LambdaClient({ region, credentials });
-      const lambdas: any[] = [];
-      const paginator = paginateListFunctions({ client }, {});
-      for await (const awsPage of paginator) {
-        if (awsPage.Functions) lambdas.push(...awsPage.Functions);
-      }
-      return lambdas;
-    })(),
-    listSqsQueues(region, credentials)
-  ]);
+  let lambdasRaw = [];
+  let sqsQueues = [];
+  try {
+    [lambdasRaw, sqsQueues] = await Promise.all([
+      (async () => {
+        const client = new LambdaClient({ region, credentials });
+        const lambdas: any[] = [];
+        const paginator = paginateListFunctions({ client }, {});
+        for await (const awsPage of paginator) {
+          if (awsPage.Functions) lambdas.push(...awsPage.Functions);
+        }
+        return lambdas;
+      })(),
+      listSqsQueues(region, credentials)
+    ]);
+  } catch (err: any) {
+    if (err?.name === 'TooManyRequestsException' || err?.Reason === 'CallerRateLimitExceeded') {
+      return NextResponse.json({ error: 'AWS rate limit exceeded. Please try again later.' }, { status: 429 });
+    }
+    return NextResponse.json({ error: err?.message || 'Failed to fetch Lambdas.' }, { status: 500 });
+  }
   // Fetch config for all Lambdas
   logMessage("debug", "API: Lambdas batch", lambdasRaw);
   const configs = await Promise.all(
