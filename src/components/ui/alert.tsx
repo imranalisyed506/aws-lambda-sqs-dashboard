@@ -20,13 +20,13 @@ export const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
       <div
         ref={ref}
         className={cn(
-          "w-full rounded-md border px-4 py-3 text-sm flex items-center gap-2 shadow-sm",
+          "w-full relative rounded-md border px-4 py-3 text-sm flex items-center gap-2 shadow-sm",
           variantStyles[variant],
           className
         )}
         {...props}
       >
-        {children}
+        <span className="flex-1">{children}</span>
         {(variant === "success" || variant === "error") && (
           <button
             type="button"

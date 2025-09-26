@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Alert } from "@/components/ui/alert";
 
+import { PROFILE_OPTIONS } from "../config";
 
 export default function ZipUpdatePage() {
   const [zipFiles, setZipFiles] = useState<string[]>([]);
@@ -16,28 +17,34 @@ export default function ZipUpdatePage() {
   const [showAlert, setShowAlert] = useState(false);
   const [alertType, setAlertType] = useState<"success"|"error">("success");
   const [loading, setLoading] = useState(false);
-  const [profileS3, setProfileS3] = useState("playground");
-  const [profileLambda, setProfileLambda] = useState("paws_integration");
-  const profiles = ["playground", "paws_integration", "paws"];
+  const [profileS3, setProfileS3] = useState(PROFILE_OPTIONS[0]);
+  const [profileLambda, setProfileLambda] = useState(PROFILE_OPTIONS[1] || PROFILE_OPTIONS[0]);
+  const profiles = PROFILE_OPTIONS;
 
   async function fetchZipFiles() {
     setLoading(true);
     setStatus("");
     setShowAlert(false);
-    setDebugLogs(logs => [...logs, `Fetching zip files (profile: ${profileS3})...`]);
+    const logMessage = `Fetching zip files (profile: ${profileS3})...`;
+    setDebugLogs(logs => [...logs, logMessage]);
+    console.log('[ZIP-UPDATE]', logMessage);
     try {
       const res = await fetch(`/api/zip-update?type=zipfiles&profileS3=${profileS3}`);
       const data = await res.json();
       setZipFiles(data.zipFiles || []);
-      setDebugLogs(logs => [...logs, `Zip files fetched: ${JSON.stringify(data.zipFiles)}`]);
+      const successMessage = `Zip files fetched: ${JSON.stringify(data.zipFiles)}`;
+      setDebugLogs(logs => [...logs, successMessage]);
+      console.log('[ZIP-UPDATE]', successMessage);
       setStatus("Zip files fetched successfully");
       setAlertType("success");
       setShowAlert(true);
     } catch (err: any) {
+      const errorMessage = `Error fetching zip files: ${err}`;
       setStatus("Failed to fetch zip files");
       setAlertType("error");
       setShowAlert(true);
-      setDebugLogs(logs => [...logs, `Error fetching zip files: ${err}`]);
+      setDebugLogs(logs => [...logs, errorMessage]);
+      console.error('[ZIP-UPDATE]', errorMessage);
     }
     setLoading(false);
   }
@@ -46,20 +53,26 @@ export default function ZipUpdatePage() {
     setLoading(true);
     setStatus("");
     setShowAlert(false);
-    setDebugLogs(logs => [...logs, `Fetching Lambda functions (profile: ${profileLambda})...`]);
+    const logMessage = `Fetching Lambda functions (profile: ${profileLambda})...`;
+    setDebugLogs(logs => [...logs, logMessage]);
+    console.log('[ZIP-UPDATE]', logMessage);
     try {
       const res = await fetch(`/api/zip-update?type=lambdas&profileLambda=${profileLambda}`);
       const data = await res.json();
       setLambdaFunctions(data.functions || []);
-      setDebugLogs(logs => [...logs, `Lambda functions fetched: ${JSON.stringify(data.functions)}`]);
+      const successMessage = `Lambda functions fetched: ${JSON.stringify(data.functions)}`;
+      setDebugLogs(logs => [...logs, successMessage]);
+      console.log('[ZIP-UPDATE]', successMessage);
       setStatus("Lambda functions fetched successfully");
       setAlertType("success");
       setShowAlert(true);
     } catch (err: any) {
+      const errorMessage = `Error fetching Lambda functions: ${err}`;
       setStatus("Failed to fetch Lambda functions");
       setAlertType("error");
       setShowAlert(true);
-      setDebugLogs(logs => [...logs, `Error fetching Lambda functions: ${err}`]);
+      setDebugLogs(logs => [...logs, errorMessage]);
+      console.error('[ZIP-UPDATE]', errorMessage);
     }
     setLoading(false);
   }
@@ -69,7 +82,9 @@ export default function ZipUpdatePage() {
     setLoading(true);
     setStatus("");
     setShowAlert(false);
-    setDebugLogs(logs => [...logs, `Updating Lambda: ${functionName} with zip: ${zipFile} (profile: ${profileLambda})`]);
+    const logMessage = `Updating Lambda: ${functionName} with zip: ${zipFile} (profile: ${profileLambda})`;
+    setDebugLogs(logs => [...logs, logMessage]);
+    console.log('[ZIP-UPDATE]', logMessage);
     try {
       const res = await fetch("/api/zip-update", {
         method: "POST",
@@ -77,15 +92,19 @@ export default function ZipUpdatePage() {
         body: JSON.stringify({ functionName, zipFile, profileLambda })
       });
       const data = await res.json();
+      const successMessage = `Update result: ${JSON.stringify(data)}`;
       setStatus(data.status || "Update complete");
       setAlertType("success");
       setShowAlert(true);
-      setDebugLogs(logs => [...logs, `Update result: ${JSON.stringify(data)}`]);
+      setDebugLogs(logs => [...logs, successMessage]);
+      console.log('[ZIP-UPDATE]', successMessage);
     } catch (err: any) {
+      const errorMessage = `Error updating Lambda: ${err}`;
       setStatus("Failed to update Lambda function");
       setAlertType("error");
       setShowAlert(true);
-      setDebugLogs(logs => [...logs, `Error updating Lambda: ${err}`]);
+      setDebugLogs(logs => [...logs, errorMessage]);
+      console.error('[ZIP-UPDATE]', errorMessage);
     }
     setLoading(false);
   }

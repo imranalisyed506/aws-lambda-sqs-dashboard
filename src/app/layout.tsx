@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Alertlogic AlertLogic AWS Lambda Dashboard",
-  description: "Alertlogic AlertLogic AWS Lambda Dashboard",
+  title: "AWS Lambda Dashboard",
+  description: "AWS Lambda Dashboard",
 };
 
 // Removed, now imported from client component
@@ -32,6 +32,11 @@ export default function RootLayout({
           <div className="flex gap-6 items-center">
             <NavLink href="/" label="Home" />
             <NavLink href="/zip-update" label="Zip Update" />
+            <NavLink href="/inactive-collectors" label="Inactive Collectors" />
+            <NavLink href="/error-collectors" label="Error Collectors" />
+            <NavLink href="/sqs-message-count" label="SQS Message Count" />
+            <NavLink href="/collector-admin" label="Collector Admin" />
+            <NavLink href="/sqs-message-reader" label="SQS Message Reader" />
           </div>
         </nav>
         <main className="px-4 py-6">

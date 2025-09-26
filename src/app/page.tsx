@@ -1,4 +1,6 @@
 "use client";
+import { SelfUpdateButton } from "@/components/ui/self-update-button";
+
 import {
   Accordion,
   AccordionItem,
@@ -13,27 +15,149 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import {
+  DEFAULT_PROFILE,
+  DEFAULT_REGION,
+  PROFILE_OPTIONS,
+  REGION_OPTIONS,
+  IMPORTANT_KEYS,
+  DEFAULT_COLUMNS,
+  PAGE_SIZE,
+  MAX_FRONTEND_MS,
+  SQS_RETRY_ATTEMPTS,
+  SQS_RETRY_DELAY,
+  LAMBDA_RETRY_ATTEMPTS,
+  LAMBDA_RETRY_DELAY,
+  COLLECTOR_SUMMARY_RETRY_ATTEMPTS,
+  COLLECTOR_SUMMARY_RETRY_DELAY
+} from "./config";
 
-// Utility to format relative time
-function formatRelativeTime(dateString: string) {
-  if (!dateString) return "-";
-  const date = new Date(dateString);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - date.getTime()) / 1000); // seconds
-  if (diff < 60) return `${diff} seconds ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)} days ago`;
-  if (diff < 31536000) return `${Math.floor(diff / 2592000)} months ago`;
-  return `${Math.floor(diff / 31536000)} years ago`;
+import { formatRelativeTime } from "@/lib/utils";
+import { MainNav } from "@/components/ui/main-nav";
+interface CollectorSummaryData {
+  collectorCounts: Record<string, number>;
+  customerCollectorCounts: Record<string, Record<string, number>>;
+  totalCustomers: number;
+  customersWithCollectors: number;
+  totalCollectors: number;
 }
+
 export default function Home() {
+  // State for log filtering
+  const [logFilter, setLogFilter] = useState("");
+  const [logTypeFilter, setLogTypeFilter] = useState("all");
+
+  // Function to format and highlight log messages
+  const formatLogMessage = (message: string) => {
+    if (!message) return "";
+    
+    // Check for PAWS000200 Log events received pattern (SUCCESS)
+    if (message.includes("PAWS000200") && message.includes("Log events received")) {
+      return (
+        <div className="flex items-center space-x-2">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-300 shadow-sm">
+            ✅ SUCCESS
+          </span>
+          <span className="font-mono text-green-700 font-semibold bg-green-50 px-2 py-1 rounded">{message}</span>
+        </div>
+      );
+    }
+    
+    // Check for specific PAWS success patterns
+    if (message.includes("PAWS000") && (message.includes("completed successfully") || message.includes("finished") || message.includes("success"))) {
+      return (
+        <div className="flex items-center space-x-2">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-300">
+            ✅ COMPLETE
+          </span>
+          <span className="font-mono text-green-700">{message}</span>
+        </div>
+      );
+    }
+    
+    // Check for error messages (PAWS errors, level:error, or general error patterns)
+    const lowerMessage = message.toLowerCase();
+    if ((message.includes("PAWS000") && (message.includes("ERROR") || message.includes("FAILED") || message.includes("Exception"))) ||
+        lowerMessage.includes('"level":"error"') ||
+        lowerMessage.includes('"level": "error"') ||
+        lowerMessage.includes('"level" : "error"') ||
+        (lowerMessage.includes("error") && (lowerMessage.includes("exception") || lowerMessage.includes("failed") || lowerMessage.includes("error:"))) ||
+        lowerMessage.includes("uncaught exception") ||
+        lowerMessage.includes("runtime error") ||
+        lowerMessage.includes("traceback")) {
+      return (
+        <div className="flex items-center space-x-2">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 shadow-sm">
+            ❌ ERROR
+          </span>
+          <span className="font-mono text-red-700 bg-red-50 px-2 py-1 rounded">{message}</span>
+        </div>
+      );
+    }
+    
+    // Check for PAWS warning messages
+    if (message.includes("PAWS000") && (message.includes("WARNING") || message.includes("WARN") || message.includes("deprecated"))) {
+      return (
+        <div className="flex items-center space-x-2">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-300 shadow-sm">
+            ⚠️ WARNING
+          </span>
+          <span className="font-mono text-yellow-700 bg-yellow-50 px-2 py-1 rounded">{message}</span>
+        </div>
+      );
+    }
+    
+    // Check for PAWS startup/initialization messages
+    if (message.includes("PAWS000") && (message.includes("Starting") || message.includes("Initializing") || message.includes("Setup"))) {
+      return (
+        <div className="flex items-center space-x-2">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300">
+            🚀 STARTUP
+          </span>
+          <span className="font-mono text-blue-700">{message}</span>
+        </div>
+      );
+    }
+    
+    // Check for other PAWS info messages
+    if (message.includes("PAWS000")) {
+      return (
+        <div className="flex items-center space-x-2">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300">
+            ℹ️ INFO
+          </span>
+          <span className="font-mono text-blue-700">{message}</span>
+        </div>
+      );
+    }
+    
+    // Highlight Lambda function start/end messages
+    if (message.includes("START RequestId:") || message.includes("END RequestId:") || message.includes("REPORT RequestId:")) {
+      return (
+        <div className="flex items-center space-x-2">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300">
+            🔄 LAMBDA
+          </span>
+          <span className="font-mono text-purple-700">{message}</span>
+        </div>
+      );
+    }
+    
+    // Default formatting for regular messages
+    return <span className="font-mono text-gray-700">{message}</span>;
+  };
+
   const [collectorSummaryLoading, setCollectorSummaryLoading] = useState(false);
-  // ...existing code...
   const [profile, setProfile] = useState("playground");
   const [profiles, setProfiles] = useState<string[]>(["playground", "paws_integration","paws"]);
   const [region, setRegion] = useState("us-east-1");
-  const [collectorSummary, setCollectorSummary] = useState<Record<string, number>>({});
+  const [collectorSummary, setCollectorSummary] = useState<CollectorSummaryData>({
+    collectorCounts: {},
+    customerCollectorCounts: {},
+    totalCustomers: 0,
+    customersWithCollectors: 0,
+    totalCollectors: 0
+  });
   useEffect(() => {
     let cancelled = false;
     async function fetchCollectorSummaryWithRetry(attempt = 0) {
@@ -54,10 +178,22 @@ export default function Home() {
         }
         if (!res.ok) throw new Error("Failed to fetch collector summary");
         const data = await res.json();
-        setCollectorSummary(data.collectorCounts || {});
+        setCollectorSummary({
+          collectorCounts: data.collectorCounts || {},
+          customerCollectorCounts: data.customerCollectorCounts || {},
+          totalCustomers: data.totalCustomers || 0,
+          customersWithCollectors: data.customersWithCollectors || 0,
+          totalCollectors: data.totalCollectors || 0
+        });
         setError(null);
       } catch (err: any) {
-        setCollectorSummary({});
+        setCollectorSummary({
+          collectorCounts: {},
+          customerCollectorCounts: {},
+          totalCustomers: 0,
+          customersWithCollectors: 0,
+          totalCollectors: 0
+        });
         setError({ status: err.status || 500, message: err.message || "Failed to fetch collector summary." });
       } finally {
         setCollectorSummaryLoading(false);
@@ -66,6 +202,7 @@ export default function Home() {
     fetchCollectorSummaryWithRetry();
     return () => { cancelled = true; };
   }, [profile, region]);
+
   // Flyout state for viewing env vars and logs
   const [flyoutType, setFlyoutType] = useState<"env"|"logs"|"sqs"|null>(null);
   const [flyoutLambda, setFlyoutLambda] = useState<any>(null);
@@ -213,25 +350,27 @@ export default function Home() {
   const defaultColumns = [
   { key: "FunctionName", label: "Function Name" },
   { key: "Description", label: "Description" },
+  { key: "customerId", label: "Customer ID" },
   { key: "Runtime", label: "Runtime" },
   { key: "MemorySize", label: "Memory (MB)" },
   { key: "LastModified", label: "Last Modified" },
   { key: "collectorType", label: "Collector Type" },
+  { key: "sqsMessageCount", label: "SQS Message Count" },
   { key: "PackageType", label: "Package Type" },
   { key: "Architectures", label: "Architecture" },
   { key: "CodeSize", label: "Code Size" },
   { key: "Timeout", label: "Timeout (s)" },
   ];
-  const importantKeys = ["FunctionName", "Description", "Runtime", "MemorySize", "LastModified", "collectorType"];
+  const importantKeys = ["FunctionName", "Description", "customerId", "Runtime", "MemorySize", "LastModified", "collectorType"];
   const [visibleColumns, setVisibleColumns] = useState<string[]>(importantKeys);
   const [error, setError] = useState<any>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [retryDelay, setRetryDelay] = useState(0);
   const [selected, setSelected] = useState<any>(null);
   const [lambdaDetails, setLambdaDetails] = useState<any>(null);
-  const [regions, setRegions] = useState<string[]>(["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1"]);
+  const [regions, setRegions] = useState<string[]>(REGION_OPTIONS);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [filter, setFilter] = useState("");
   // Track selected collector type for highlighting
   const [selectedCollectorType, setSelectedCollectorType] = useState<string>("");
@@ -253,6 +392,59 @@ export default function Home() {
     setFlyoutType("env");
     setFlyoutLambda(lambda);
   }
+
+  // Refresh all tables (Lambdas, Collector Summary, SQS, Logs)
+  const refreshAllTables = React.useCallback(() => {
+    // Re-fetch Lambdas
+    (async () => {
+      try {
+        const res = await fetch(`/api/lambdas?profile=${profile}&region=${region}`);
+        const data = await res.json();
+        setLambdas(Array.isArray(data.lambdas) ? data.lambdas : []);
+        setTotalLambdaCount(Array.isArray(data.lambdas) ? data.lambdas.length : 0);
+      } catch {
+        setLambdas([]);
+        setTotalLambdaCount(0);
+      }
+    })();
+    // Re-fetch Collector Summary
+    (async () => {
+      try {
+        const res = await fetch(`/api/collector-summary?profile=${profile}&region=${region}`);
+        const data = await res.json();
+        setCollectorSummary({
+          collectorCounts: data.collectorCounts || {},
+          customerCollectorCounts: data.customerCollectorCounts || {},
+          totalCustomers: data.totalCustomers || 0,
+          customersWithCollectors: data.customersWithCollectors || 0,
+          totalCollectors: data.totalCollectors || 0
+        });
+      } catch {
+        setCollectorSummary({
+          collectorCounts: {},
+          customerCollectorCounts: {},
+          totalCustomers: 0,
+          customersWithCollectors: 0,
+          totalCollectors: 0
+        });
+      }
+    })();
+    // Optionally refresh logs and SQS if flyout is open
+    if (flyoutType === "logs" && flyoutLambda) {
+      (async () => {
+        try {
+          const res = await fetch(`/api/lambdas?profile=${profile}&region=${flyoutLambda?.Region || region}&functionName=${flyoutLambda.FunctionName}&logs=1`);
+          const data = await res.json();
+          setCloudwatchLogs(data.logs || []);
+        } catch {
+          setCloudwatchLogs([]);
+        }
+      })();
+    }
+    if (flyoutType === "sqs" && flyoutLambda) {
+      handlePollSqs(flyoutLambda);
+    }
+  }, [profile, region, flyoutType, flyoutLambda]);
   // Handler to open logs flyout (stub fetch)
   async function handleViewLogs(lambda: any) {
     setCloudwatchLogs([]);
@@ -454,6 +646,7 @@ export default function Home() {
         setEnvVars(data?.config?.Environment?.Variables || {});
         setLambdaDetails(data);
         setSuccess(`Environment variable '${key}' updated successfully.`);
+        refreshAllTables();
       })
       .catch(err => {
         setError(err?.message || "Failed to update environment variable.");
@@ -464,6 +657,15 @@ export default function Home() {
   let filteredLambdas = lambdas.filter((fn: any) => {
     if (!filter.trim()) return true;
     const lowerFilter = filter.toLowerCase();
+    // If filtering by collector type (chip clicked), only check collectorType
+    if (selectedCollectorType) {
+      // For Unknown, collectorType is '-' and Description not S3/Poll based collector or missing
+      if (selectedCollectorType === '-') {
+        return fn.collectorType === '-' && (!fn.Description || (fn.Description !== 'Alert Logic S3 collector' && fn.Description !== 'Alert Logic Poll based collector'));
+      }
+      return fn.collectorType === selectedCollectorType;
+    }
+    // Otherwise, filter by any visible column
     return visibleColumns.some(colKey => {
       let value = fn[colKey];
       if (colKey === "collectorType" && fn.Description === "Alert Logic S3 collector") {
@@ -496,6 +698,8 @@ export default function Home() {
 
   return (
   <div className="min-h-screen flex flex-col items-center justify-start bg-gradient-to-br from-stone-50 via-stone-100 to-stone-200">
+    {/* Main navigation links */}
+    <MainNav />
     {/* Collector type summary widget - moved outside main dashboard */}
     <div className="w-full max-w-4xl mt-8 mb-4 px-6 py-4 rounded-2xl shadow bg-white flex flex-col items-center">
       <div className="w-full flex flex-col items-center gap-1">
@@ -513,26 +717,31 @@ export default function Home() {
               </span>
             ) : (
               <div className="flex flex-wrap gap-2 items-center">
-                {Object.keys(collectorSummary).length > 0 &&
-                  Object.entries(collectorSummary)
+                {/* Fix chip count and filter for Unknown */}
+                {Object.keys(collectorSummary.collectorCounts).length > 0 &&
+                  Object.entries(collectorSummary.collectorCounts)
                     .sort(([a], [b]) => {
                       if (a === '-' && b !== '-') return 1;
                       if (a !== '-' && b === '-') return -1;
                       return a.localeCompare(b);
                     })
-                    .map(([type, count]) => (
-                      <button
-                        key={type}
-                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold border shadow-sm transition-all duration-150 focus:outline-none ${selectedCollectorType === type ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-indigo-100 text-indigo-800 border-indigo-200'}`}
-                        onClick={() => {
-                          setFilter(type === '-' ? '' : type);
-                          setSelectedCollectorType(type);
-                        }}
-                        aria-label={`Filter by ${type === '-' ? 'Unknown' : type}`}
-                      >
-                        {type === '-' ? 'Unknown' : type}: {count}
-                      </button>
-                    ))}
+                    .filter(([type]) => type !== '-') // Remove Unknown chip
+                    .map(([type, count]) => {
+                      const chipCount = lambdas.filter(fn => fn.collectorType === type).length;
+                      return (
+                        <button
+                          key={type}
+                          className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold border shadow-sm transition-all duration-150 focus:outline-none ${selectedCollectorType === type ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-indigo-100 text-indigo-800 border-indigo-200'}`}
+                          onClick={() => {
+                            setFilter(type);
+                            setSelectedCollectorType(type);
+                          }}
+                          aria-label={`Filter by ${type}`}
+                        >
+                          {type}: {chipCount}
+                        </button>
+                      );
+                    })}
                 {selectedCollectorType && (
                   <button
                     className="ml-2 px-2 py-1 rounded bg-stone-200 text-stone-700 text-xs font-semibold border border-stone-300 shadow-sm hover:bg-stone-300 transition-all duration-150"
@@ -545,18 +754,26 @@ export default function Home() {
                     Clear All
                   </button>
                 )}
-                {Object.keys(collectorSummary).length === 0 && (
+                {Object.keys(collectorSummary.collectorCounts).length === 0 && (
                   <span className="text-xs text-stone-400">No collector data</span>
                 )}
               </div>
             )}
           </div>
-          <span className="font-medium text-xs text-indigo-700 bg-indigo-50 rounded px-2 py-1 border border-indigo-100 shadow-sm min-h-[24px] flex items-center justify-center">
-            <>Total Lambda Collectors <span className="font-bold">({totalLambdaCount})</span></>
-          </span>
+          <div className="flex flex-wrap gap-2 justify-center items-center">
+            <span className="font-medium text-xs text-indigo-700 bg-indigo-50 rounded px-2 py-1 border border-indigo-100 shadow-sm min-h-[24px] flex items-center justify-center">
+              <>Total Lambda Collectors <span className="font-bold">({totalLambdaCount})</span></>
+            </span>
+            {collectorSummary.totalCustomers > 0 && (
+              <span className="font-medium text-xs text-green-700 bg-green-50 rounded px-2 py-1 border border-green-100 shadow-sm min-h-[24px] flex items-center justify-center">
+                <>Customers with Collectors <span className="font-bold">({collectorSummary.customersWithCollectors}/{collectorSummary.totalCustomers})</span></>
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
+
     {/* Inline loaders for each component */}
     {/* Table loader */}
     <div className="relative w-full max-w-7xl overflow-auto flex justify-center px-2 py-4">
@@ -762,15 +979,20 @@ export default function Home() {
                         <TableCell
                           key={col.key}
                           style={{ width: colWidths[col.key] || 120, minWidth: 60 }}
-                          className={col.key === "FunctionName" || col.key === "Description" ? "break-words whitespace-normal font-semibold text-stone-700" : ""}
+                          className={col.key === "FunctionName" || col.key === "Description" ? "break-words whitespace-normal font-semibold text-stone-700" : 
+                                   col.key === "customerId" ? "font-mono text-xs text-green-700 font-semibold" : ""}
                         >
                           {col.key === "LastModified"
                             ? formatRelativeTime(fn.LastModified)
                             : col.key === "collectorType"
                               ? fn.collectorType || "-"
-                              : Array.isArray(fn[col.key])
-                                ? fn[col.key].join(', ')
-                                : fn[col.key] || "-"}
+                              : col.key === "customerId"
+                                ? fn.customerId || "unknown"
+                                : col.key === "sqsMessageCount"
+                                  ? (typeof fn.sqsMessageCount === "number" ? fn.sqsMessageCount : (fn.sqsMessageCount === undefined ? "-" : fn.sqsMessageCount))
+                                  : Array.isArray(fn[col.key])
+                                    ? fn[col.key].join(', ')
+                                    : fn[col.key] || "-"}
                         </TableCell>
                       ) : null
                     ))}
@@ -784,42 +1006,17 @@ export default function Home() {
                       <Button size="sm" variant="secondary" className="shadow" onClick={() => handleViewLogs(fn)}>
                         View 1Hr logs
                       </Button>
-                      <Button size="sm" variant="primary" className="bg-indigo-600 hover:bg-indigo-700 text-white shadow" onClick={async () => {
-                        setLoading(true);
-                        setError("");
-                        setSuccess("");
-                        try {
-                          const res = await fetch("/api/lambdas", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              selfUpdate: true,
-                              functionName: fn.FunctionName,
-                              profile,
-                              region
-                            })
-                          });
-                          const data = await res.json();
-                          if (!res.ok) throw new Error(data?.error || "SelfUpdate failed");
-                          setSuccess(`SelfUpdate triggered for ${fn.FunctionName}. Response: ${JSON.stringify(data)}`);
-                          // Re-fetch Lambdas after SelfUpdate
-                          try {
-                            const res2 = await fetch(`/api/lambdas?profile=${profile}&region=${region}&page=${page}&pageSize=${pageSize}`);
-                            if (!res2.ok) throw new Error("Failed to fetch Lambdas");
-                            const data2 = await res2.json();
-                            setLambdas(Array.isArray(data2.lambdas) ? data2.lambdas : []);
-                          } catch (err: any) {
-                            setLambdas([]);
-                            setError(err?.message || "Failed to load Lambdas after SelfUpdate.");
-                          }
-                          setLoading(false);
-                        } catch (err: any) {
-                          setError(err?.message || "Failed to trigger SelfUpdate.");
-                          setLoading(false);
-                        }
-                      }}>
-                        SelfUpdate
-                      </Button>
+                      <SelfUpdateButton
+                        fn={fn}
+                        profile={profile}
+                        region={region}
+                        page={page}
+                        pageSize={pageSize}
+                        setSuccess={setSuccess}
+                        setError={setError}
+                        setLambdas={setLambdas}
+                        refreshAllTables={refreshAllTables}
+                      />
                       {fn.Environment?.Variables?.paws_state_queue_url ? (
                         <Button size="sm" variant="secondary" className="shadow" onClick={() => handlePollSqs(fn)}>
                           Poll SQS
@@ -936,7 +1133,8 @@ export default function Home() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <h3 className="font-semibold text-2xl mb-6">CloudWatch Logs for {flyoutLambda.FunctionName} (last 1 hour)</h3>
+          <h3 className="font-semibold text-2xl mb-4">CloudWatch Logs for {flyoutLambda.FunctionName} (last 1 hour)</h3>
+          
           {logsLoading ? (
             <div className="flex items-center justify-center py-4">
               <svg className="animate-spin h-5 w-5 text-indigo-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -946,7 +1144,151 @@ export default function Home() {
               <span className="text-indigo-700">Loading logs...</span>
             </div>
           ) : Array.isArray(cloudwatchLogs) && cloudwatchLogs.length > 0 ? (
-            <table className="w-full text-base border rounded-xl overflow-hidden" style={{ minWidth: "650px" }}>
+            <>
+              {/* Log Statistics */}
+              <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                {(() => {
+                  const filteredLogs = cloudwatchLogs.filter((log) => {
+                    // Apply text filter
+                    if (logFilter && !log.message?.toLowerCase().includes(logFilter.toLowerCase())) {
+                      return false;
+                    }
+                    
+                    // Apply type filter
+                    if (logTypeFilter !== "all") {
+                      const message = log.message || "";
+                      switch (logTypeFilter) {
+                        case "success":
+                          return message.includes("PAWS000200") && message.includes("Log events received");
+                        case "error":
+                          const lowerMessage = message.toLowerCase();
+                          return (message.includes("PAWS000") && (message.includes("ERROR") || message.includes("FAILED"))) ||
+                                 lowerMessage.includes('"level":"error"') ||
+                                 lowerMessage.includes('"level": "error"') ||
+                                 lowerMessage.includes('"level" : "error"') ||
+                                 (lowerMessage.includes("error") && (lowerMessage.includes("exception") || lowerMessage.includes("failed") || lowerMessage.includes("error:"))) ||
+                                 lowerMessage.includes("uncaught exception") ||
+                                 lowerMessage.includes("runtime error") ||
+                                 lowerMessage.includes("traceback");
+                        case "warning":
+                          return message.includes("PAWS000") && (message.includes("WARNING") || message.includes("WARN"));
+                        case "paws":
+                          return message.includes("PAWS000");
+                        default:
+                          return true;
+                      }
+                    }
+                    
+                    return true;
+                  });
+                  
+                  const successCount = filteredLogs.filter(log => 
+                    log.message && log.message.includes("PAWS000200") && log.message.includes("Log events received")
+                  ).length;
+                  const errorCount = filteredLogs.filter(log => {
+                    const message = log.message || "";
+                    const lowerMessage = message.toLowerCase();
+                    return (message.includes("PAWS000") && (message.includes("ERROR") || message.includes("FAILED"))) ||
+                           lowerMessage.includes('"level":"error"') ||
+                           lowerMessage.includes('"level": "error"') ||
+                           lowerMessage.includes('"level" : "error"') ||
+                           (lowerMessage.includes("error") && (lowerMessage.includes("exception") || lowerMessage.includes("failed") || lowerMessage.includes("error:"))) ||
+                           lowerMessage.includes("uncaught exception") ||
+                           lowerMessage.includes("runtime error") ||
+                           lowerMessage.includes("traceback");
+                  }).length;
+                  const warningCount = filteredLogs.filter(log => 
+                    log.message && log.message.includes("PAWS000") && (log.message.includes("WARNING") || log.message.includes("WARN"))
+                  ).length;
+                  const startupCount = filteredLogs.filter(log => 
+                    log.message && log.message.includes("PAWS000") && (log.message.includes("Starting") || log.message.includes("Initializing"))
+                  ).length;
+                  const lambdaCount = filteredLogs.filter(log => 
+                    log.message && (log.message.includes("START RequestId:") || log.message.includes("END RequestId:") || log.message.includes("REPORT RequestId:"))
+                  ).length;
+                  const pawsInfoCount = filteredLogs.filter(log => 
+                    log.message && log.message.includes("PAWS000") && 
+                    !log.message.includes("Log events received") && 
+                    !log.message.includes("ERROR") && !log.message.includes("FAILED") &&
+                    !log.message.includes("WARNING") && !log.message.includes("WARN") &&
+                    !log.message.includes("Starting") && !log.message.includes("Initializing")
+                  ).length;
+                  
+                  return (
+                    <div className="flex flex-wrap gap-4 items-center">
+                      <h4 className="text-sm font-semibold text-blue-800">📈 Log Summary {logFilter || logTypeFilter !== "all" ? "(Filtered)" : ""}:</h4>
+                      <div className="flex items-center space-x-1">
+                        <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                        <span className="text-sm font-medium text-green-700">{successCount} Success</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+                        <span className="text-sm font-medium text-red-700">{errorCount} Errors</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
+                        <span className="text-sm font-medium text-yellow-700">{warningCount} Warnings</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+                        <span className="text-sm font-medium text-blue-700">{pawsInfoCount} Info</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <span className="w-3 h-3 bg-purple-500 rounded-full"></span>
+                        <span className="text-sm font-medium text-purple-700">{lambdaCount} Lambda</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <span className="w-3 h-3 bg-cyan-500 rounded-full"></span>
+                        <span className="text-sm font-medium text-cyan-700">{startupCount} Startup</span>
+                      </div>
+                      <div className="flex items-center space-x-1 ml-auto">
+                        <span className="text-sm font-bold text-indigo-800">Total: {filteredLogs.length}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+              
+              {/* Log Filtering Controls */}
+              <div className="mb-4 flex flex-wrap gap-3 items-center bg-white p-3 rounded-lg border">
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium text-gray-700">🔍 Filter:</label>
+                  <input
+                    type="text"
+                    placeholder="Search log messages..."
+                    value={logFilter}
+                    onChange={(e) => setLogFilter(e.target.value)}
+                    className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium text-gray-700">📊 Type:</label>
+                  <select
+                    value={logTypeFilter}
+                    onChange={(e) => setLogTypeFilter(e.target.value)}
+                    className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">All Messages</option>
+                    <option value="success">✅ Success Only</option>
+                    <option value="error">❌ Errors Only</option>
+                    <option value="warning">⚠️ Warnings Only</option>
+                    <option value="paws">🔍 PAWS Messages</option>
+                  </select>
+                </div>
+                {(logFilter || logTypeFilter !== "all") && (
+                  <button
+                    onClick={() => {
+                      setLogFilter("");
+                      setLogTypeFilter("all");
+                    }}
+                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+              
+              <table className="w-full text-base border rounded-xl overflow-hidden" style={{ minWidth: "650px" }}>
               <thead className="bg-stone-100 sticky top-0 z-10">
                 <tr>
                   <th className="text-left px-3 py-2 font-semibold">Timestamp</th>
@@ -956,14 +1298,82 @@ export default function Home() {
               <tbody>
                 {[...cloudwatchLogs]
                   .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
-                  .map((log: any, idx: number) => (
-                    <tr key={String(log.timestamp) + '-' + idx + '-' + (log.message?.slice(0,16) ?? '')} className={idx % 2 === 0 ? "bg-stone-50" : "bg-white"}>
-                      <td className="px-3 py-2 font-mono break-all border-b border-stone-100">{log.timestamp ? new Date(log.timestamp).toLocaleString() : "-"}</td>
-                      <td className="px-3 py-2 font-mono break-all border-b border-stone-100">{log.message || ""}</td>
-                    </tr>
-                  ))}
+                  .filter((log) => {
+                    // Apply text filter
+                    if (logFilter && !log.message?.toLowerCase().includes(logFilter.toLowerCase())) {
+                      return false;
+                    }
+                    
+                    // Apply type filter
+                    if (logTypeFilter !== "all") {
+                      const message = log.message || "";
+                      const lowerMessage = message.toLowerCase();
+                      switch (logTypeFilter) {
+                        case "success":
+                          return message.includes("PAWS000200") && message.includes("Log events received");
+                        case "error":
+                          return (message.includes("PAWS000") && (message.includes("ERROR") || message.includes("FAILED"))) ||
+                                 lowerMessage.includes('"level":"error"') ||
+                                 lowerMessage.includes('"level": "error"') ||
+                                 lowerMessage.includes('"level" : "error"') ||
+                                 (lowerMessage.includes("error") && (lowerMessage.includes("exception") || lowerMessage.includes("failed") || lowerMessage.includes("error:"))) ||
+                                 lowerMessage.includes("uncaught exception") ||
+                                 lowerMessage.includes("runtime error") ||
+                                 lowerMessage.includes("traceback");
+                        case "warning":
+                          return message.includes("PAWS000") && (message.includes("WARNING") || message.includes("WARN"));
+                        case "paws":
+                          return message.includes("PAWS000");
+                        default:
+                          return true;
+                      }
+                    }
+                    
+                    return true;
+                  })
+                  .map((log: any, idx: number) => {
+                    const isPawsSuccess = log.message && log.message.includes("PAWS000200") && log.message.includes("Log events received");
+                    const isPawsError = log.message && (() => {
+                      const message = log.message;
+                      const lowerMessage = message.toLowerCase();
+                      return (message.includes("PAWS000") && (message.includes("ERROR") || message.includes("FAILED"))) ||
+                             lowerMessage.includes('"level":"error"') ||
+                             lowerMessage.includes('"level": "error"') ||
+                             lowerMessage.includes('"level" : "error"') ||
+                             (lowerMessage.includes("error") && (lowerMessage.includes("exception") || lowerMessage.includes("failed") || lowerMessage.includes("error:"))) ||
+                             lowerMessage.includes("uncaught exception") ||
+                             lowerMessage.includes("runtime error") ||
+                             lowerMessage.includes("traceback");
+                    })();
+                    const isPawsWarning = log.message && log.message.includes("PAWS000") && (log.message.includes("WARNING") || log.message.includes("WARN"));
+                    
+                    let rowClass = "hover:bg-gray-100 transition-colors duration-200";
+                    if (isPawsSuccess) {
+                      rowClass = "bg-green-50 border-l-4 border-green-500 hover:bg-green-100 transition-all duration-200 shadow-sm";
+                    } else if (isPawsError) {
+                      rowClass = "bg-red-50 border-l-4 border-red-500 hover:bg-red-100 transition-all duration-200 shadow-sm";
+                    } else if (isPawsWarning) {
+                      rowClass = "bg-yellow-50 border-l-4 border-yellow-500 hover:bg-yellow-100 transition-all duration-200 shadow-sm";
+                    } else if (idx % 2 === 0) {
+                      rowClass += " bg-stone-50";
+                    } else {
+                      rowClass += " bg-white";
+                    }
+                    
+                    return (
+                      <tr key={String(log.timestamp) + '-' + idx + '-' + (log.message?.slice(0,16) ?? '')} className={rowClass}>
+                        <td className="px-3 py-2 font-mono break-all border-b border-stone-100 text-sm">
+                          {log.timestamp ? new Date(log.timestamp).toLocaleString() : "-"}
+                        </td>
+                        <td className="px-3 py-3 break-all border-b border-stone-100">
+                          {formatLogMessage(log.message || "")}
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
+            </>
           ) : (
             <span className="text-stone-500">No logs found for the last hour.</span>
           )}

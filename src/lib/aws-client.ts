@@ -1,3 +1,21 @@
+import { SetQueueAttributesCommand } from "@aws-sdk/client-sqs";
+
+/**
+ * Set the VisibilityTimeout attribute for an SQS queue.
+ * @param profile AWS profile name
+ * @param region AWS region
+ * @param queueUrl SQS queue URL
+ * @param timeoutSeconds VisibilityTimeout in seconds
+ */
+export async function setSqsQueueVisibilityTimeout(profile: string, region: string, queueUrl: string, timeoutSeconds: number) {
+  const client = getSqsClient(profile, region);
+  await client.send(new SetQueueAttributesCommand({
+    QueueUrl: queueUrl,
+    Attributes: {
+      VisibilityTimeout: timeoutSeconds.toString(),
+    },
+  }));
+}
 import { logMessage } from "@/lib/utils";
 import { SQSClient, GetQueueAttributesCommand, ListQueuesCommand, paginateListQueues } from "@aws-sdk/client-sqs";
 import { fromIni } from "@aws-sdk/credential-providers";
@@ -50,7 +68,7 @@ import { CloudWatchLogsClient, FilterLogEventsCommand } from "@aws-sdk/client-cl
 // Cached CloudWatch Logs client
 const cloudwatchClientCache: Record<string, CloudWatchLogsClient> = {};
 export function getCloudWatchLogsClient(profile: string, region: string) {
-  logMessage("debug", "Getting CloudWatchLogsClient for", profile, region);
+  // logMessage("debug", "Getting CloudWatchLogsClient for", profile, region);
   const cacheKey = `${profile}:${region}`;
   if (!cloudwatchClientCache[cacheKey]) {
     cloudwatchClientCache[cacheKey] = new CloudWatchLogsClient({
@@ -111,6 +129,32 @@ export async function listLambdas(profile: string, region: string) {
   const client = getLambdaClient(profile, region);
   const result = await client.send(new ListFunctionsCommand({}));
   return result.Functions || [];
+}
+
+// Get ALL Lambda functions using pagination (no limit)
+export async function listAllLambdas(profile: string, region: string) {
+  const client = getLambdaClient(profile, region);
+  const allFunctions: any[] = [];
+  
+  try {
+    logMessage("info", `Starting to fetch ALL Lambda functions from ${region} using profile ${profile}`);
+    const paginator = paginateListFunctions({ client }, {});
+    
+    let pageCount = 0;
+    for await (const page of paginator) {
+      pageCount++;
+      if (page.Functions) {
+        allFunctions.push(...page.Functions);
+        logMessage("debug", `Page ${pageCount}: Added ${page.Functions.length} functions, total: ${allFunctions.length}`);
+      }
+    }
+    
+    logMessage("info", `Successfully fetched ${allFunctions.length} Lambda functions from ${region} using profile ${profile} (${pageCount} pages)`);
+    return allFunctions;
+  } catch (error) {
+    logMessage("error", "Error fetching all Lambda functions:", error);
+    throw error;
+  }
 }
 
 // Paginated Lambda fetch: returns batch of Lambdas for given page

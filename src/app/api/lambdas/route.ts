@@ -21,25 +21,19 @@ export async function GET(req: NextRequest) {
   }
 
   if (functionName) {
-  logMessage("info", "API: Fetching Lambda config and event source mappings for", functionName, profile, region);
+    logMessage("info", "API: Fetching Lambda config and event source mappings for", functionName, profile, region);
     const config = await getLambdaConfig(profile, region, functionName);
-    const mappings = await getLambdaEventSourceMappings(profile, region, functionName);
-    const queues = [];
-
-    for (const m of mappings) {
-      if (m.EventSourceArn && m.EventSourceArn.includes(":sqs:")) {
-        try {
-          const q = await getSqsQueueDetails(profile, region, m.EventSourceArn);
-          queues.push({ ...q, uuid: m.UUID, state: m.State, enabled: m.State === "Enabled" });
-        } catch (e) {
-          logMessage("error", "API: Failed to fetch queue details", e);
-        }
-      }
-    }
-
-  logMessage("debug", "API: Lambda config", config);
-  logMessage("debug", "API: Lambda queues", queues);
-    return NextResponse.json({ config, queues });
+    const mappingsRaw = await getLambdaEventSourceMappings(profile, region, functionName);
+    // Normalize mapping properties for frontend (AWS SDK v3 uses capitalized names)
+    const eventSourceMappings = (mappingsRaw || []).map(m => ({
+      UUID: m.UUID,
+      State: m.State,
+      Enabled: m.State === 'Enabled',
+      EventSourceArn: m.EventSourceArn,
+    }));
+    logMessage("debug", "API: Lambda config", config);
+    logMessage("debug", "API: Lambda event source mappings", eventSourceMappings);
+    return NextResponse.json({ config, eventSourceMappings });
   }
 
   const credentials = fromIni({ profile });
@@ -66,20 +60,34 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json({ error: err?.message || 'Failed to fetch Lambdas.' }, { status: 500 });
   }
-  // Fetch config for all Lambdas
-  logMessage("debug", "API: Lambdas batch", lambdasRaw);
+  
+  // Filter to only include Alert Logic collectors
+  const alertLogicCollectors = lambdasRaw.filter(fn => {
+    const description = fn.Description || "";
+    return description === "Alert Logic S3 collector" || 
+           description === "Alert Logic Poll based collector";
+  });
+  
+  // Fetch config for Alert Logic Lambdas only
+  logMessage("debug", "API: Alert Logic collectors found", alertLogicCollectors.length);
   const configs = await Promise.all(
-  lambdasRaw.map(fn => getLambdaConfig(profile, region, fn.FunctionName).catch((e) => { logMessage("error", "API: Failed to fetch config for", fn.FunctionName, e); return null; }))
+  alertLogicCollectors.map(fn => getLambdaConfig(profile, region, fn.FunctionName).catch((e) => { logMessage("error", "API: Failed to fetch config for", fn.FunctionName, e); return null; }))
   );
-  const lambdas = lambdasRaw.map((fn, idx) => {
+  const lambdas = alertLogicCollectors.map((fn, idx) => {
     let collectorType = "-";
     if (fn.Description === "Alert Logic S3 collector") {
       collectorType = "s3-collector";
-    } else if (configs[idx]) {
-      collectorType = configs[idx]?.Environment?.Variables?.paws_type_name || "-";
+    } else if ("Alert Logic Poll based collector" === fn.Description) {
+      console.log("Debug: Poll based collector found", JSON.stringify(fn?.Environment?.Variables?.paws_type_name));
+      collectorType = fn?.Environment?.Variables?.paws_type_name || "-";
     }
-    logMessage("debug", "API: Lambda", fn.FunctionName, "collectorType", collectorType);
-    return { ...fn, collectorType };
+    
+    // Extract customer ID from environment variables
+    const environment = fn.Environment?.Variables || {};
+    const customerId = environment.customer_id || environment.customerId || environment.CUSTOMER_ID || 'unknown';
+    
+    logMessage("debug", "API: Lambda", fn.FunctionName, "collectorType", collectorType, "customerId", customerId);
+    return { ...fn, collectorType, customerId };
   });
   return NextResponse.json({ lambdas, sqsQueues });
 }

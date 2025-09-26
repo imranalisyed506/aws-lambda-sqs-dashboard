@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listLambdas, getLambdaConfig, getLambdaEventSourceMappings, getSqsQueueDetails, toggleEventSourceMapping, updateLambdaEnvVars } from "./aws-client";
+import { PROFILE_OPTIONS, REGION_OPTIONS } from "../app/config";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const profile = searchParams.get("profile") || "playground";
-  const region = searchParams.get("region") || "us-east-1";
+  const profile = searchParams.get("profile") || PROFILE_OPTIONS[0];
+  const region = searchParams.get("region") || REGION_OPTIONS[0];
   const functionName = searchParams.get("functionName");
 
   if (functionName) {
