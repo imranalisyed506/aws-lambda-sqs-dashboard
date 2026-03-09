@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Docs RAG System - Presentation</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/theme/black.css">
+    <style>
+        .reveal h1, .reveal h2, .reveal h3 { text-transform: none; }
+        .reveal pre { width: 100%; }
+        .reveal code { font-size: 0.9em; }
+        .reveal table { font-size: 0.7em; margin: 20px auto; }
+        .reveal ul { font-size: 0.9em; }
+        .emoji { font-style: normal; }
+        .highlight-green { color: #10b981; }
+        .highlight-blue { color: #3b82f6; }
+        .highlight-yellow { color: #f59e0b; }
+        .architecture-box { 
+            border: 2px solid #3b82f6; 
+            padding: 20px; 
+            margin: 20px 0;
+            background: rgba(59, 130, 246, 0.1);
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            text-align: left;
+        }
+        .metric-card {
+            background: rgba(16, 185, 129, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <!-- Title Slide -->
+            <section>
+                <h1>Local Docs RAG System</h1>
+                <h3>Multi-Provider Retrieval-Augmented Generation Platform</h3>
+                <p style="margin-top: 50px;">
+                    <small>Built with Angular 19 • Node.js • Docker</small>
+                </p>
+            </section>
+
+            <!-- Agenda -->
+            <section>
+                <h2>Agenda</h2>
+                <p style="font-size: 0.9em; color: #10b981; margin-bottom: 30px;"><em>Overview of the presentation structure and key topics we'll cover</em></p>
+                <ol>
+                    <li>Problem Statement</li>
+                    <li>Solution Overview</li>
+                    <li>System Architecture</li>
+                    <li>Technology Stack</li>
+                    <li>Multi-Provider Support</li>
+                    <li>Setup & Deployment</li>
+                    <li>Demo Walkthrough</li>
+                    <li>Sample Data</li>
+                    <li>Getting Started</li>
+                </ol>
+            </section>
+
+            <!-- Problem Statement -->
+            <section>
+                <section>
+                    <h2>Problem Statement</h2>
+                    <p style="font-size: 0.85em; color: #f59e0b; margin-bottom: 25px;"><em>Identifying real-world challenges in knowledge management and information retrieval</em></p>
+                    <h3>Challenges in Information Retrieval</h3>
+                    <ul>
+                        <li><strong>Information Overload</strong>: Documentation scattered everywhere</li>
+                        <li><strong>Context Loss</strong>: LLMs lack knowledge of proprietary docs</li>
+                        <li><strong>Manual Search</strong>: Time-consuming lookup in PDFs, markdown</li>
+                        <li><strong>No Integration</strong>: Existing systems don't connect docs with AI</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>Business Impact</h3>
+                    <p style="font-size: 0.8em; color: #fbbf24; margin-bottom: 20px;"><em>Real consequences of poor information management on productivity and team performance</em></p>
+                    <ul>
+                        <li class="highlight-yellow">Reduced developer productivity</li>
+                        <li class="highlight-yellow">Longer onboarding times</li>
+                        <li class="highlight-yellow">Inconsistent answers to common questions</li>
+                        <li class="highlight-yellow">Knowledge silos across teams</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Solution Overview -->
+            <section>
+                <section>
+                    <h2>Solution Overview</h2>
+                    <p style="font-size: 0.85em; color: #10b981; margin-bottom: 25px;"><em>Introducing RAG as the solution that combines retrieval and generation for accurate answers</em></p>
+                    <h3>Retrieval-Augmented Generation (RAG)</h3>
+                    <p style="font-size: 1.2em; color: #10b981;">
+                        Intelligent document ingestion + Vector search + LLM generation
+                    </p>
+                </section>
+                <section>
+                    <h3>How It Works</h3>
+                    <p style="font-size: 0.8em; color: #fbbf24; margin-bottom: 20px;"><em>Step-by-step breakdown of the RAG pipeline from ingestion to response generation</em></p>
+                    <ol style="text-align: left;">
+                        <li><strong class="highlight-blue">Ingest</strong>: Parse local documents (PDFs, Markdown, HTML)</li>
+                        <li><strong class="highlight-blue">Embed</strong>: Convert text to semantic vectors</li>
+                        <li><strong class="highlight-blue">Store</strong>: Index in vector database</li>
+                        <li><strong class="highlight-blue">Retrieve</strong>: Find relevant context via similarity search</li>
+                        <li><strong class="highlight-blue">Generate</strong>: Feed context to LLM for accurate answers</li>
+                    </ol>
+                </section>
+                <section>
+                    <h3>Key Value Proposition</h3>
+                    <p style="font-size: 0.8em; color: #fbbf24; margin-bottom: 20px;"><em>Why choose this solution: accuracy, flexibility, privacy, and ease of use</em></p>
+                    <div class="feature-grid">
+                        <div>
+                            <p><span class="highlight-green">✅ Accurate</span></p>
+                            <p style="font-size: 0.8em;">Grounds AI responses in actual documentation</p>
+                        </div>
+                        <div>
+                            <p><span class="highlight-green">✅ Flexible</span></p>
+                            <p style="font-size: 0.8em;">Works with multiple LLMs and vector databases</p>
+                        </div>
+                        <div>
+                            <p><span class="highlight-green">✅ Private</span></p>
+                            <p style="font-size: 0.8em;">Runs entirely locally or with your own cloud keys</p>
+                        </div>
+                        <div>
+                            <p><span class="highlight-green">✅ Easy</span></p>
+                            <p style="font-size: 0.8em;">Simple setup with Docker Compose</p>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <!-- System Architecture -->
+            <section>
+                <section>
+                    <h2>System Architecture</h2>
+                    <p style="font-size: 0.85em; color: #3b82f6; margin-bottom: 15px;"><em>Visual representation of how components interact: frontend, backend pipelines, and external services</em></p>
+                    <svg viewBox="0 0 1200 650" xmlns="http://www.w3.org/2000/svg" style="max-width: 100%; height: 600px; display: block; margin: 0 auto; background: linear-gradient(135deg, rgba(30,58,138,0.25), rgba(0,0,0,0.25)); border-radius: 12px; padding: 15px; box-sizing: border-box;">
+                        <defs>
+                            <style>
+                                .arch-main-box { fill: rgba(59, 130, 246, 0.25); stroke: #60a5fa; stroke-width: 3; }
+                                .arch-main-label { font-size: 22px; font-weight: bold; fill: #ffffff; font-family: Arial, sans-serif; }
+                                .arch-sub-label { font-size: 15px; fill: #dbeafe; font-family: Arial, sans-serif; }
+                                .arch-micro-label { font-size: 13px; fill: #bfdbfe; font-family: Arial, sans-serif; }
+                                .pipeline-box { stroke-width: 2.5; }
+                                .ingestion-box { fill: rgba(251, 146, 60, 0.2); stroke: #fb923c; }
+                                .query-box { fill: rgba(168, 85, 247, 0.2); stroke: #d8b4fe; }
+                                .service-box { fill: rgba(34, 197, 94, 0.25); stroke: #86efac; stroke-width: 2.5; }
+                                .service-label { font-size: 16px; font-weight: bold; fill: #86efac; font-family: Arial, sans-serif; }
+                                .service-detail { font-size: 13px; fill: #22c55e; font-family: Arial, sans-serif; }
+                                .connector { stroke: #10b981; stroke-width: 2.5; fill: none; }
+                                .label-title { font-size: 18px; font-weight: bold; fill: #fbbf24; font-family: Arial, sans-serif; }
+                                .label-item { font-size: 13px; fill: #fef3c7; font-family: Arial, sans-serif; }
+                            </style>
+                            <marker id="arrowhead" markerWidth="15" markerHeight="15" refX="12" refY="7" orient="auto">
+                                <polygon points="0 0, 15 7, 0 14" fill="#10b981" />
+                            </marker>
+                        </defs>
+
+                        <!-- Frontend Layer -->
+                        <rect class="arch-main-box" x="80" y="0" width="1040" height="100" rx="12"/>
+                        <text class="arch-main-label" x="600" y="38" text-anchor="middle">🎨 Angular 19 Frontend</text>
+                        <text class="arch-sub-label" x="600" y="62" text-anchor="middle">TypeScript • RxJS • Material Design • Real-time Notifications</text>
+                        <text class="arch-micro-label" x="600" y="82" text-anchor="middle">HTTP REST API (Port: 4200)</text>
+
+                        <!-- API Arrow -->
+                        <path class="connector" d="M 600 100 L 600 130" marker-end="url(#arrowhead)"/>
+
+                        <!-- Backend Layer Container -->
+                        <rect class="arch-main-box" x="40" y="130" width="1120" height="290" rx="12"/>
+                        <text class="arch-main-label" x="600" y="158" text-anchor="middle">⚙️ Node.js + Express Backend (Port: 3000)</text>
+
+                        <!-- Ingestion Pipeline -->
+                        <rect class="pipeline-box ingestion-box" x="60" y="180" width="500" height="215" rx="10"/>
+                        <text class="label-title" x="310" y="210" text-anchor="middle">📥 Ingestion Pipeline</text>
+                        <line x1="80" y1="225" x2="540" y2="225" stroke="#fb923c" stroke-width="1" opacity="0.5"/>
+                        <text class="label-item" x="90" y="248" text-anchor="start" font-size="12">✓ PDF Parser - Extract text & metadata</text>
+                        <text class="label-item" x="90" y="268" text-anchor="start" font-size="12">✓ Markdown Parser - Handle .md files</text>
+                        <text class="label-item" x="90" y="288" text-anchor="start" font-size="12">✓ Web Crawler (Cheerio) - Scrape HTML</text>
+                        <text class="label-item" x="90" y="308" text-anchor="start" font-size="12">✓ Text Chunker - 300-600 tokens/chunk</text>
+                        <text class="label-item" x="90" y="328" text-anchor="start" font-size="12">✓ Normalize & Output → Ready for embedding</text>
+
+                        <!-- RAG Query Pipeline -->
+                        <rect class="pipeline-box query-box" x="600" y="180" width="500" height="215" rx="10"/>
+                        <text class="label-title" x="850" y="210" text-anchor="middle">🔍 RAG Query Pipeline</text>
+                        <line x1="620" y1="225" x2="1080" y2="225" stroke="#d8b4fe" stroke-width="1" opacity="0.5"/>
+                        <text class="label-item" x="620" y="248" text-anchor="start" font-size="12">✓ Embedding Provider</text>
+                        <text class="label-item" x="635" y="263" text-anchor="start" font-size="11">• Ollama/OpenAI/Local</text>
+                        <text class="label-item" x="620" y="283" text-anchor="start" font-size="12">✓ Vector Similarity Search</text>
+                        <text class="label-item" x="635" y="298" text-anchor="start" font-size="11">• Top-k retrieval (k=4-10)</text>
+                        <text class="label-item" x="620" y="318" text-anchor="start" font-size="12">✓ LLM + Citations</text>
+                        <text class="label-item" x="635" y="333" text-anchor="start" font-size="11">• Generate response with sources</text>
+
+                        <!-- Connectors from pipelines to services -->
+                        <path class="connector" d="M 210 395 L 210 425" marker-end="url(#arrowhead)"/>
+                        <path class="connector" d="M 450 395 L 450 425" marker-end="url(#arrowhead)"/>
+                        <path class="connector" d="M 720 395 L 720 425" marker-end="url(#arrowhead)"/>
+                        <path class="connector" d="M 990 395 L 990 425" marker-end="url(#arrowhead)"/>
+
+                        <!-- Service Layer - Ollama -->
+                        <rect class="service-box" x="130" y="425" width="160" height="115" rx="8"/>
+                        <text class="service-label" x="210" y="452" text-anchor="middle">🦙 Ollama</text>
+                        <text class="service-detail" x="210" y="470" text-anchor="middle" font-size="12">LLM + Embeddings</text>
+                        <text class="arch-micro-label" x="210" y="490" text-anchor="middle">Port: 11434</text>
+                        <text class="service-detail" x="210" y="505" text-anchor="middle" font-size="11">Local Inference</text>
+
+                        <!-- Service Layer - Qdrant -->
+                        <rect class="service-box" x="370" y="425" width="160" height="115" rx="8"/>
+                        <text class="service-label" x="450" y="452" text-anchor="middle">⚡ Qdrant</text>
+                        <text class="service-detail" x="450" y="470" text-anchor="middle" font-size="12">Vector Database</text>
+                        <text class="arch-micro-label" x="450" y="490" text-anchor="middle">Port: 6333</text>
+                        <text class="service-detail" x="450" y="505" text-anchor="middle" font-size="11">Production-grade</text>
+
+                        <!-- Service Layer - Chroma -->
+                        <rect class="service-box" x="640" y="425" width="160" height="115" rx="8"/>
+                        <text class="service-label" x="720" y="452" text-anchor="middle">✨ Chroma</text>
+                        <text class="service-detail" x="720" y="470" text-anchor="middle" font-size="12">Vector Database</text>
+                        <text class="arch-micro-label" x="720" y="490" text-anchor="middle">Port: 8000</text>
+                        <text class="service-detail" x="720" y="505" text-anchor="middle" font-size="11">Development-grade</text>
+
+                        <!-- Service Layer - Milvus -->
+                        <rect class="service-box" x="910" y="425" width="160" height="115" rx="8"/>
+                        <text class="service-label" x="990" y="452" text-anchor="middle">🗄️ Milvus</text>
+                        <text class="service-detail" x="990" y="470" text-anchor="middle" font-size="12">Vector Database</text>
+                        <text class="arch-micro-label" x="990" y="490" text-anchor="middle">Port: 19530</text>
+                        <text class="service-detail" x="990" y="505" text-anchor="middle" font-size="11">Enterprise-scale</text>
+
+                        <!-- Data Flow annotation -->
+                        <text class="arch-micro-label" x="600" y="575" text-anchor="middle" font-size="11">📊 Data Flow: User Input → Ingestion/Query → Vector Ops → AI Response with Citations</text>
+                    </svg>
+                </section>
+                <section>
+                    <h3>Component Interaction Details</h3>
+                    <p style="font-size: 0.85em; color: #10b981; margin-bottom: 15px;"><em>How data flows through the system and how components communicate</em></p>
+                    
+                    <div style="text-align: left; font-size: 0.75em; background: rgba(59, 130, 246, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <p><strong style="color: #60a5fa;">📥 INGESTION FLOW:</strong></p>
+                        <p style="margin-left: 15px; color: #dbeafe;">User Upload → PDF/MD/HTML Parser → Text Chunker (300-600 tokens) → Embedding Provider (Ollama/OpenAI/Local) → Vector Store (Qdrant/Chroma/Milvus) → Metadata Stored ✓</p>
+                    </div>
+                    
+                    <div style="text-align: left; font-size: 0.75em; background: rgba(168, 85, 247, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <p><strong style="color: #d8b4fe;">🔍 QUERY FLOW:</strong></p>
+                        <p style="margin-left: 15px; color: #ddd6fe;">User Question → Embed Query (same provider) → Similarity Search → Retrieve Top-K Results → Build Context Prompt → LLM Generation → Add Source Citations → Return Response ✓</p>
+                    </div>
+                    
+                    <div style="text-align: left; font-size: 0.75em;">
+                        <p><strong style="color: #86efac;">⚙️ KEY INTERACTIONS:</strong></p>
+                        <ul style="margin: 10px 0 0 20px; color: #bfdbfe;">
+                            <li><strong>Frontend ↔ Backend:</strong> REST API over HTTP (localhost:3000)</li>
+                            <li><strong>Backend ↔ Embedding:</strong> Vector generation via Ollama/OpenAI/Local</li>
+                            <li><strong>Backend ↔ Vector DB:</strong> CRUD operations and similarity search queries</li>
+                            <li><strong>Backend ↔ LLM:</strong> Prompt submission and response generation</li>
+                            <li><strong>All ↔ Local Providers:</strong> Fallback when no external services available</li>
+                        </ul>
+                    </div>
+                </section>
+                <section>
+                    <h3>Key Discussion Points</h3>
+                    <p style="font-size: 0.85em; color: #10b981; margin-bottom: 20px;"><em>Deep dive into architectural decisions and trade-offs</em></p>
+                    <ul style="font-size: 0.9em; text-align: left;">
+                        <li><strong>Separation of Concerns:</strong> Ingestion and query pipelines are independent</li>
+                        <li><strong>Multi-Provider Abstraction:</strong> Easy to swap providers without core logic changes</li>
+                        <li><strong>Scalability:</strong> Stateless backend allows horizontal scaling</li>
+                        <li><strong>Flexibility:</strong> Works with local or cloud-based services</li>
+                        <li><strong>Latency Optimization:</strong> Embedding caching and lazy provider initialization</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Technology Stack -->
+            <section>
+                <h2>Technology Stack</h2>
+                <p style="font-size: 0.9em; color: #a78bfa; margin-bottom: 20px;"><em>Modern, production-ready technologies chosen for performance, scalability, and developer experience</em></p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; font-size: 0.8em;">
+                    <div style="background: rgba(59, 130, 246, 0.15); padding: 15px; border-radius: 8px; border-left: 4px solid #60a5fa;">
+                        <p style="color: #60a5fa; font-weight: bold; margin-bottom: 12px;">🎨 Frontend</p>
+                        <ul style="list-style: none; padding: 0; margin: 0;">
+                            <li><small><strong>Angular</strong> 19 (latest)</small></li>
+                            <li><small><strong>Language:</strong> TypeScript</small></li>
+                            <li><small><strong>Styling:</strong> SCSS</small></li>
+                            <li><small><strong>Dev Server:</strong> Vite</small></li>
+                        </ul>
+                    </div>
+                    <div style="background: rgba(139, 92, 246, 0.15); padding: 15px; border-radius: 8px; border-left: 4px solid #d8b4fe;">
+                        <p style="color: #d8b4fe; font-weight: bold; margin-bottom: 12px;">⚙️ Backend</p>
+                        <ul style="list-style: none; padding: 0; margin: 0;">
+                            <li><small><strong>Runtime:</strong> Node.js 20+</small></li>
+                            <li><small><strong>Framework:</strong> Express 5.1</small></li>
+                            <li><small><strong>Language:</strong> ES Modules</small></li>
+                            <li><small><strong>Testing:</strong> Vitest</small></li>
+                        </ul>
+                    </div>
+                    <div style="background: rgba(34, 197, 94, 0.15); padding: 15px; border-radius: 8px; border-left: 4px solid #86efac;">
+                        <p style="color: #86efac; font-weight: bold; margin-bottom: 12px;">🐳 Infrastructure</p>
+                        <ul style="list-style: none; padding: 0; margin: 0;">
+                            <li><small><strong>Docker:</strong> Compose</small></li>
+                            <li><small><strong>Vector DBs:</strong> Qdrant, Chroma, Milvus</small></li>
+                            <li><small><strong>LLM:</strong> Ollama</small></li>
+                            <li><small><strong>External:</strong> API-based LLMs</small></li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Multi-Provider Support -->
+            <section>
+                <h2>Multi-Provider Support</h2>
+                <p style="font-size: 0.85em; color: #10b981; margin-bottom: 15px;"><em>Demonstrating flexibility with multiple providers for embeddings, vector databases, and LLMs</em></p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.7em;">
+                    <div>
+                        <p style="background: rgba(251, 146, 60, 0.2); padding: 10px; border-radius: 6px; font-weight: bold; color: #fb923c; margin-bottom: 10px;">📥 Embedding Providers</p>
+                        <table style="width: 100%;">
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+                                <td style="padding: 6px;"><strong>Ollama</strong></td>
+                                <td style="padding: 6px; color: #10b981;">nomic (768D)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+                                <td style="padding: 6px;"><strong>OpenAI</strong></td>
+                                <td style="padding: 6px; color: #10b981;">text-embed-3 (1536D)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px;"><strong>Local</strong></td>
+                                <td style="padding: 6px; color: #10b981;">Hash-based (256D)</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div>
+                        <p style="background: rgba(59, 130, 246, 0.2); padding: 10px; border-radius: 6px; font-weight: bold; color: #60a5fa; margin-bottom: 10px;">⚡ Vector DB Providers</p>
+                        <table style="width: 100%;">
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+                                <td style="padding: 6px;"><strong>Qdrant</strong></td>
+                                <td style="padding: 6px; color: #10b981;">Production (6333)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+                                <td style="padding: 6px;"><strong>Chroma</strong></td>
+                                <td style="padding: 6px; color: #10b981;">Dev (8000)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+                                <td style="padding: 6px;"><strong>Milvus</strong></td>
+                                <td style="padding: 6px; color: #10b981;">Enterprise (19530)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px;"><strong>Local</strong></td>
+                                <td style="padding: 6px; color: #10b981;">Testing</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <div style="margin-top: 15px; background: rgba(139, 92, 246, 0.1); padding: 12px; border-radius: 6px; font-size: 0.75em;">
+                    <p style="color: #d8b4fe; font-weight: bold; margin-bottom: 8px; margin-top: 0;">🤖 LLM Providers</p>
+                    <p style="margin: 0; color: #bfdbfe;"><strong>Local:</strong> Ollama (llama3.1, qwen2.5, mistral) • <strong>Cloud:</strong> OpenAI (GPT-4), OpenRouter (100+), Groq (Fast), Together (OSS)</p>
+                </div>
+            </section>
+
+            <!-- Setup & Deployment -->
+            <section>
+                <h2>Setup & Deployment</h2>
+                <p style="font-size: 0.85em; color: #10b981; margin-bottom: 15px;"><em>Multiple deployment approaches for different environments and requirements</em></p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; font-size: 0.65em;">
+                    <div style="background: rgba(59, 130, 246, 0.15); padding: 12px; border: 2px solid #60a5fa; border-radius: 8px;">
+                        <p style="font-weight: bold; color: #60a5fa; margin-top: 0; margin-bottom: 10px;">Option 1: Full Stack</p>
+                        <pre style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; margin: 0; overflow: auto;"><code># Install dependencies
+npm install
+cd ui && npm install
+
+# Start all services
+./scripts/run-dev.sh</code></pre>
+                        <p style="margin-top: 8px; color: #bfdbfe;"><strong>Services:</strong> Ollama • Qdrant • Backend • Frontend</p>
+                    </div>
+                    <div style="background: rgba(251, 146, 60, 0.15); padding: 12px; border: 2px solid #fb923c; border-radius: 8px;">
+                        <p style="font-weight: bold; color: #fb923c; margin-top: 0; margin-bottom: 10px;">Option 2: App Only</p>
+                        <pre style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; margin: 0; overflow: auto;"><code># Use local providers
+./scripts/run-app.sh
+
+# No Docker needed
+# Local embeddings
+# In-memory vectors</code></pre>
+                        <p style="margin-top: 8px; color: #fed7aa;"><strong>Best for:</strong> Quick testing</p>
+                    </div>
+                    <div style="background: rgba(139, 92, 246, 0.15); padding: 12px; border: 2px solid #d8b4fe; border-radius: 8px;">
+                        <p style="font-weight: bold; color: #d8b4fe; margin-top: 0; margin-bottom: 10px;">Option 3: Pluggable</p>
+                        <pre style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; margin: 0; overflow: auto;"><code># Toggle Docker on/off
+USE_DOCKER=0 \
+./scripts/run-dev.sh
+
+# Flexible infrastructure
+# Development ready</code></pre>
+                        <p style="margin-top: 8px; color: #bfdbfe;"><strong>Best for:</strong> Flexibility</p>
+                    </div>
+                </div>
+                <div style="margin-top: 12px; background: rgba(16, 185, 129, 0.1); padding: 10px; border-radius: 6px; font-size: 0.7em;">
+                    <p style="color: #86efac; font-weight: bold; margin: 0; margin-bottom: 6px;">📡 Default Ports</p>
+                    <p style="margin: 0; color: #a7f3d0;">Ollama: 11434 | Qdrant: 6333 | Chroma: 8000 | Backend: 3000 | Frontend: 4200</p>
+                </div>
+            </section>
+
+            <!-- Demo Walkthrough -->
+            <section>
+                <h2>Demo Walkthrough</h2>
+                <p style="font-size: 0.85em; color: #10b981; margin-bottom: 15px;"><em>Practical walkthrough showing document ingestion, RAG queries, and provider flexibility</em></p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.7em;">
+                    <div style="background: rgba(251, 146, 60, 0.1); padding: 12px; border-radius: 6px;">
+                        <p style="color: #fb923c; font-weight: bold; margin-top: 0; margin-bottom: 10px;">📥 Step 1: Ingest</p>
+                        <ol style="margin: 0; padding-left: 20px; text-align: left; line-height: 1.6;">
+                            <li>Select: "Local Files"</li>
+                            <li>Paths: ./sample-data/*</li>
+                            <li>Vector DB: Qdrant</li>
+                            <li>Click "Ingest"</li>
+                        </ol>
+                        <p style="background: rgba(16, 185, 129, 0.2); padding: 8px; border-radius: 4px; margin-top: 10px; margin-bottom: 0; color: #86efac;"><strong>✅</strong> 52 chunks indexed</p>
+                    </div>
+                    <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 6px;">
+                        <p style="color: #60a5fa; font-weight: bold; margin-top: 0; margin-bottom: 10px;">🔍 Step 2: Query</p>
+                        <ul style="margin: 0; padding-left: 20px; text-align: left; line-height: 1.6;">
+                            <li><strong>Q:</strong> "How does product page handle cart?"</li>
+                            <li><strong>Q:</strong> "System requirements?"</li>
+                            <li><strong>Q:</strong> "Reset password steps?"</li>
+                        </ul>
+                        <p style="background: rgba(139, 92, 246, 0.2); padding: 8px; border-radius: 4px; margin-top: 10px; margin-bottom: 0; color: #d8b4fe;">→ Grounded answers with citations</p>
+                    </div>
+                </div>
+                <div style="margin-top: 12px; background: rgba(139, 92, 246, 0.1); padding: 12px; border-radius: 6px; font-size: 0.7em;">
+                    <p style="color: #d8b4fe; font-weight: bold; margin: 0; margin-bottom: 8px;">🔄 Step 3: Compare Providers</p>
+                    <p style="margin: 0; color: #bfdbfe;"><strong>Switch:</strong> Ollama → OpenRouter (LLM) | Qdrant → Chroma (Vector DB) <span style="color: #a7f3d0;">→ Re-run queries, compare results</span></p>
+                </div>
+            </section>
+
+            <!-- Sample Data -->
+            <section>
+                <h2>Sample Data Structure</h2>
+                <p style="font-size: 0.85em; color: #10b981; margin-bottom: 20px;"><em>Pre-built test data (5,700+ words) covering documentation, code, and help content for immediate testing</em></p>
+                <pre style="font-size: 0.5em;"><code>
+sample-data/
+├── docs/
+│   ├── getting-started.md      (800 words)
+│   ├── architecture.md         (1,200 words)
+│   ├── api-reference.md        (1,500 words)
+│   └── deployment-guide.md     (900 words)
+├── repo/
+│   ├── README.md               (400 words)
+│   ├── product-page.md         (500 words)
+│   └── checkout-flow.md        (600 words)
+├── help-site/
+│   ├── faq.md                  (700 words)
+│   ├── account-management.md   (550 words)
+│   └── troubleshooting.md      (650 words)
+├── README.md
+└── TEST-QUERIES.md
+
+<strong>Total: 5,700+ words of realistic test content</strong>
+                </code></pre>
+            </section>
+
+
+
+
+
+
+
+            <!-- Getting Started -->
+            <section>
+                <section>
+                    <h2>Getting Started</h2>
+                    <p style="font-size: 0.85em; color: #10b981; margin-bottom: 25px;"><em>Actionable steps and resources to clone, install, and run the system immediately</em></p>
+                    <h3>Live Demo</h3>
+                    <pre><code class="bash">
+git clone &lt;repository-url&gt;
+cd ragdemo
+./scripts/run-dev.sh
+                    </code></pre>
+                    <p>Open browser: <code style="color: #10b981;">http://localhost:4200</code></p>
+                </section>
+                <section>
+                    <h3>Installation & Setup Options</h3>
+                    <p style="font-size: 0.8em; color: #10b981; margin-bottom: 20px;"><em>Choose your preferred setup method based on infrastructure</em></p>
+                    <table style="font-size: 0.75em;">
+                        <thead>
+                            <tr style="background: rgba(59, 130, 246, 0.3);">
+                                <th>Setup Mode</th>
+                                <th>Command</th>
+                                <th>Best For</th>
+                                <th>Dependencies</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Full Stack</strong></td>
+                                <td><code>./scripts/run-dev.sh</code></td>
+                                <td>Production</td>
+                                <td>Docker</td>
+                            </tr>
+                            <tr>
+                                <td><strong>App Only</strong></td>
+                                <td><code>./scripts/run-app.sh</code></td>
+                                <td>Quick test</td>
+                                <td>Node.js only</td>
+                            </tr>
+                            <tr>
+                                <td><strong>No Docker</strong></td>
+                                <td><code>USE_DOCKER=0 ./scripts/run-dev.sh</code></td>
+                                <td>Flexible</td>
+                                <td>Configurable</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                <section>
+                    <h3>Resources & Documentation</h3>
+                    <ul style="font-size: 0.9em; text-align: left;">
+                        <li><strong>📖 README.md</strong> - Complete setup and configuration guide</li>
+                        <li><strong>📁 Sample Data</strong> - 5,700+ words of test content in sample-data/</li>
+                        <li><strong>🧪 Test Queries</strong> - Pre-built queries in TEST-QUERIES.md</li>
+                        <li><strong>🔧 Scripts</strong> - Automated setup (run-dev.sh, run-app.sh, run-docker.sh)</li>
+                        <li><strong>🐳 Docker Compose</strong> - docker-compose.yml for all services</li>
+                        <li><strong>📊 Presentation</strong> - This interactive HTML presentation</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Thank You -->
+            <section>
+                <h1>Thank You!</h1>
+                <h2 style="color: #10b981;">Local Docs RAG System</h2>
+                
+                <p style="margin: 30px 0; font-size: 0.95em;">
+                    <small style="color: #10b981;">Built with ❤️ using:<br>
+                    Angular 19 • Node.js • Express • Ollama • Qdrant • Docker Compose</small>
+                </p>
+                
+                <p style="margin-top: 40px; font-size: 1.3em;"><strong style="color: #10b981;">Ready to implement?</strong></p>
+                <p style="font-size: 0.9em; color: #fbbf24;">Questions? Let's discuss implementation details →</p>
+            </section>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: true,
+            transition: 'slide',
+            backgroundTransition: 'fade',
+            controls: true,
+            progress: true,
+            center: true,
+            width: 1200,
+            height: 700,
+            margin: 0.1
+        });
+    </script>
+</body>
+</html>

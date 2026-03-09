@@ -1,0 +1,15 @@
+<div class="toast-stack" *ngIf="(notifications.notifications$ | async) as items">
+  <div
+    class="toast"
+    *ngFor="let item of items"
+    [class.toast-success]="item.type === 'success'"
+    [class.toast-error]="item.type === 'error'"
+    [class.toast-info]="item.type === 'info'"
+  >
+    <div class="toast-header">
+      <strong>{{ item.title }}</strong>
+      <button type="button" (click)="notifications.remove(item.id)">×</button>
+    </div>
+    <p>{{ item.message }}</p>
+  </div>
+</div>

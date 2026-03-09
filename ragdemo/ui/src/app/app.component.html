@@ -1,0 +1,171 @@
+<app-notifications></app-notifications>
+
+<main class="shell">
+  <section class="hero">
+    <div class="badge-row">
+      <span class="badge">Angular 19</span>
+      <span class="badge">RAG Console</span>
+      <span class="status" [class.online]="healthStatus === 'Online'">API {{ healthStatus }}</span>
+    </div>
+
+    <h1>Local Knowledge<br />Command Center</h1>
+    <p>
+      Choose to ingest either local documents (PDFs, markdown, text files) or crawl websites.
+      Query with provider-selectable LLMs and strict model validation controls.
+    </p>
+  </section>
+
+  <section class="grid">
+    <article class="panel panel-connection">
+      <h2>Connection</h2>
+      <label>
+        API Base URL
+        <input [(ngModel)]="apiBase" placeholder="http://localhost:3000" />
+      </label>
+      <div class="actions">
+        <button (click)="checkHealth()" [disabled]="loading">Check Health</button>
+        <button class="ghost" (click)="loadModelOptions()" [disabled]="loading">Refresh Models</button>
+      </div>
+    </article>
+
+    <article class="panel panel-ingest">
+      <h2>Ingestion</h2>
+      <label>
+        Vector DB Provider
+        <select [(ngModel)]="vectorDbProvider">
+          <option value="local">local</option>
+          <option value="chroma">chroma</option>
+          <option value="pinecone">pinecone</option>
+          <option value="weaviate">weaviate</option>
+          <option value="faiss">faiss</option>
+          <option value="qdrant">qdrant</option>
+          <option value="milvus">milvus</option>
+        </select>
+      </label>
+      
+      <div class="source-type-selector">
+        <label class="radio-label">
+          <input type="radio" name="ingestSourceType" value="local" [(ngModel)]="ingestSourceType" />
+          <span>📁 Local Documents</span>
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="ingestSourceType" value="web" [(ngModel)]="ingestSourceType" />
+          <span>🌐 Website Crawl</span>
+        </label>
+      </div>
+      
+      <label *ngIf="ingestSourceType === 'local'">
+        Source Folders (comma separated)
+        <input [(ngModel)]="sourceDirs" placeholder="./sample-data/docs,./sample-data/repo,./sample-data/help-site" />
+        <small>Absolute or relative paths to local directories</small>
+      </label>
+      
+      <label *ngIf="ingestSourceType === 'web'">
+        Website URLs (comma separated)
+        <input [(ngModel)]="helpUrls" placeholder="https://docs.example.com/help" />
+        <small>Full URLs to crawl and index</small>
+      </label>
+      
+      <button class="block" (click)="ingest()" [disabled]="loading">
+        {{ ingestSourceType === 'local' ? '📂 Ingest Local Files' : '🌐 Crawl & Ingest Website' }}
+      </button>
+      <pre *ngIf="ingestResult">{{ ingestResult }}</pre>
+    </article>
+
+    <article class="panel panel-query">
+      <h2>Query</h2>
+      <label>
+        Vector DB Provider
+        <select [(ngModel)]="vectorDbProvider">
+          <option value="local">local</option>
+          <option value="chroma">chroma</option>
+          <option value="pinecone">pinecone</option>
+          <option value="weaviate">weaviate</option>
+          <option value="faiss">faiss</option>
+          <option value="qdrant">qdrant</option>
+          <option value="milvus">milvus</option>
+        </select>
+      </label>
+      <label>
+        Ask a question
+        <textarea [(ngModel)]="question" rows="3"></textarea>
+      </label>
+
+      <div class="split">
+        <label>
+          Top K
+          <input type="number" min="1" max="20" [(ngModel)]="topK" />
+        </label>
+        <label>
+          Source Type Filter
+          <select [(ngModel)]="sourceType">
+            <option value="">All</option>
+            <option value="pdf">pdf</option>
+            <option value="markdown">markdown</option>
+            <option value="html">html</option>
+            <option value="text">text</option>
+            <option value="web-help">web-help</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="split">
+        <label>
+          LLM Provider
+          <select [(ngModel)]="llmProvider" (change)="onProviderChange()">
+            <option *ngFor="let provider of providerList" [value]="provider">{{ provider }}</option>
+          </select>
+        </label>
+        <label>
+          Model
+          <input
+            *ngIf="allowCustomModel"
+            [(ngModel)]="llmModel"
+            placeholder="Enter custom model id"
+          />
+          <select *ngIf="!allowCustomModel" [(ngModel)]="llmModel">
+            <option *ngFor="let model of modelList" [value]="model">{{ model }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="split">
+        <label>
+          Temperature
+          <input type="number" step="0.1" min="0" max="2" [(ngModel)]="temperature" />
+        </label>
+        <label>
+          Max Tokens
+          <input type="number" min="64" max="4096" [(ngModel)]="maxTokens" />
+        </label>
+      </div>
+
+      <label class="inline">
+        <input type="checkbox" [(ngModel)]="allowCustomModel" (change)="onProviderChange()" />
+        Allow custom model ID
+      </label>
+
+      <button class="block" (click)="query()" [disabled]="loading">Run Query</button>
+    </article>
+
+    <article class="panel panel-answer" *ngIf="queryResult">
+      <h2>Answer</h2>
+      <p class="answer">{{ queryResult.answer }}</p>
+      <div class="meta">
+        <span>Provider: {{ queryResult.llm.provider }}</span>
+        <span>Model: {{ queryResult.llm.model || 'none' }}</span>
+        <span>Confidence: {{ queryResult.confidence }}</span>
+      </div>
+      <h3>Citations</h3>
+      <ul>
+        <li *ngFor="let c of queryResult.citations">
+          <strong>{{ c.source }}</strong>
+          <span *ngIf="c.section"> | {{ c.section }}</span>
+          <span *ngIf="c.page"> | page {{ c.page }}</span>
+          <span> | score {{ c.score }}</span>
+        </li>
+      </ul>
+    </article>
+  </section>
+
+</main>

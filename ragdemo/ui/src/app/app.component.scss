@@ -1,0 +1,357 @@
+:host {
+	--ink: #10231f;
+	--muted: #3f5f58;
+	--mist: #f4efe5;
+	--panel: rgba(255, 255, 255, 0.74);
+	--line: rgba(16, 35, 31, 0.16);
+	--accent: #11695f;
+	--accent-2: #d16a34;
+	--warn: #b5422f;
+
+	color: var(--ink);
+	display: block;
+	font-family: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+	min-height: 100vh;
+}
+
+.shell {
+	animation: rise 450ms ease-out;
+	margin: 0 auto;
+	max-width: 1240px;
+	min-height: 100vh;
+	padding: 2.2rem 1rem 3rem;
+	position: relative;
+}
+
+.shell::before,
+.shell::after {
+	border-radius: 999px;
+	content: '';
+	filter: blur(28px);
+	position: fixed;
+	z-index: -1;
+}
+
+.shell::before {
+	background: radial-gradient(circle, rgba(17, 105, 95, 0.22), transparent 62%);
+	height: 28rem;
+	left: -10rem;
+	top: -8rem;
+	width: 28rem;
+}
+
+.shell::after {
+	background: radial-gradient(circle, rgba(209, 106, 52, 0.26), transparent 62%);
+	bottom: -12rem;
+	height: 30rem;
+	right: -12rem;
+	width: 30rem;
+}
+
+.hero {
+	animation: rise 600ms ease-out;
+	margin-bottom: 1.2rem;
+}
+
+.hero h1 {
+	font-family: 'Sora', 'Space Grotesk', sans-serif;
+	font-size: clamp(2rem, 5vw, 4.1rem);
+	letter-spacing: -0.03em;
+	line-height: 0.95;
+	margin: 0.5rem 0 0.8rem;
+}
+
+.hero p {
+	color: var(--muted);
+	font-size: 1.04rem;
+	max-width: 60ch;
+}
+
+.badge-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.55rem;
+}
+
+.badge,
+.status {
+	backdrop-filter: blur(8px);
+	background: rgba(255, 255, 255, 0.7);
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	color: var(--muted);
+	display: inline-block;
+	font-size: 0.78rem;
+	font-weight: 700;
+	letter-spacing: 0.07em;
+	padding: 0.34rem 0.7rem;
+	text-transform: uppercase;
+}
+
+.status.online {
+	background: rgba(18, 124, 85, 0.15);
+	border-color: rgba(18, 124, 85, 0.28);
+	color: #0d6b4c;
+}
+
+.grid {
+	display: grid;
+	gap: 0.9rem;
+	grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.panel {
+	animation: rise 700ms ease-out;
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: 1.2rem;
+	box-shadow: 0 14px 40px rgba(12, 39, 34, 0.11);
+	padding: 1rem;
+}
+
+.panel h2 {
+	font-family: 'Sora', sans-serif;
+	font-size: 1.15rem;
+	margin: 0 0 0.7rem;
+}
+
+.panel-connection {
+	grid-column: span 4;
+}
+
+.panel-ingest {
+	grid-column: span 8;
+}
+
+.panel-query,
+.panel-answer {
+	grid-column: span 6;
+}
+
+label {
+	color: var(--muted);
+	display: grid;
+	font-size: 0.82rem;
+	font-weight: 700;
+	gap: 0.36rem;
+	letter-spacing: 0.04em;
+	margin: 0.55rem 0;
+	text-transform: uppercase;
+}
+
+label small {
+	color: rgba(63, 95, 88, 0.7);
+	font-size: 0.72rem;
+	font-weight: 400;
+	letter-spacing: 0.01em;
+	margin-top: -0.2rem;
+	text-transform: none;
+}
+
+.source-type-selector {
+	display: flex;
+	gap: 0.65rem;
+	margin: 0.75rem 0 0.55rem;
+}
+
+.radio-label {
+	align-items: center;
+	background: rgba(255, 255, 255, 0.5);
+	border: 2px solid rgba(16, 35, 31, 0.15);
+	border-radius: 0.78rem;
+	cursor: pointer;
+	display: flex;
+	flex: 1;
+	font-size: 0.85rem;
+	font-weight: 600;
+	gap: 0.5rem;
+	letter-spacing: 0.02em;
+	margin: 0;
+	padding: 0.6rem 0.8rem;
+	text-transform: none;
+	transition: all 0.2s ease;
+}
+
+.radio-label:hover {
+	background: rgba(255, 255, 255, 0.8);
+	border-color: rgba(17, 105, 95, 0.3);
+}
+
+.radio-label input[type="radio"] {
+	accent-color: var(--accent);
+	cursor: pointer;
+	height: 1.1rem;
+	margin: 0;
+	width: 1.1rem;
+}
+
+.radio-label input[type="radio"]:checked + span {
+	color: var(--accent);
+	font-weight: 700;
+}
+
+.radio-label:has(input[type="radio"]:checked) {
+	background: rgba(17, 105, 95, 0.08);
+	border-color: rgba(17, 105, 95, 0.5);
+	box-shadow: 0 2px 8px rgba(17, 105, 95, 0.12);
+}
+
+.radio-label span {
+	color: var(--muted);
+	transition: color 0.2s ease;
+}
+
+input,
+textarea,
+select {
+	border: 1px solid rgba(16, 35, 31, 0.2);
+	border-radius: 0.78rem;
+	color: var(--ink);
+	font-family: 'IBM Plex Mono', 'Menlo', monospace;
+	font-size: 0.88rem;
+	outline: none;
+	padding: 0.62rem 0.72rem;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 3px rgba(17, 105, 95, 0.12);
+}
+
+textarea {
+	min-height: 92px;
+	resize: vertical;
+}
+
+.actions {
+	display: flex;
+	gap: 0.55rem;
+	margin-top: 0.45rem;
+}
+
+button {
+	background: linear-gradient(128deg, var(--accent), #0f5e55);
+	border: none;
+	border-radius: 0.78rem;
+	color: #f7fffc;
+	cursor: pointer;
+	font-family: 'Space Grotesk', sans-serif;
+	font-weight: 700;
+	padding: 0.62rem 0.94rem;
+	transition: transform 140ms ease, box-shadow 180ms ease;
+}
+
+button:hover:not(:disabled) {
+	box-shadow: 0 10px 20px rgba(10, 77, 69, 0.24);
+	transform: translateY(-1px);
+}
+
+button:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+button.ghost {
+	background: linear-gradient(128deg, #df7c44, var(--accent-2));
+}
+
+.block {
+	margin-top: 0.4rem;
+	width: 100%;
+}
+
+.split {
+	display: grid;
+	gap: 0.56rem;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.inline {
+	align-items: center;
+	display: flex;
+	font-size: 0.8rem;
+	gap: 0.4rem;
+	margin-top: 0.45rem;
+}
+
+.inline input {
+	accent-color: var(--accent);
+}
+
+pre {
+	background: #12211f;
+	border-radius: 0.78rem;
+	color: #d8efe8;
+	font-family: 'IBM Plex Mono', monospace;
+	font-size: 0.77rem;
+	margin: 0.75rem 0 0;
+	max-height: 170px;
+	overflow: auto;
+	padding: 0.7rem;
+}
+
+.answer {
+	background: linear-gradient(170deg, rgba(17, 105, 95, 0.11), rgba(209, 106, 52, 0.1));
+	border-radius: 0.78rem;
+	font-size: 0.95rem;
+	line-height: 1.55;
+	padding: 0.68rem;
+}
+
+.meta {
+	display: flex;
+	flex-wrap: wrap;
+	font-size: 0.8rem;
+	gap: 0.7rem;
+	margin: 0.6rem 0;
+}
+
+ul {
+	margin: 0;
+	max-height: 220px;
+	overflow: auto;
+	padding-left: 1rem;
+}
+
+li {
+	font-family: 'IBM Plex Mono', monospace;
+	font-size: 0.76rem;
+	line-height: 1.5;
+	margin-bottom: 0.45rem;
+}
+
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translateY(18px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (max-width: 980px) {
+	.panel-connection,
+	.panel-ingest,
+	.panel-query,
+	.panel-answer {
+		grid-column: span 12;
+	}
+}
+
+@media (max-width: 640px) {
+	.shell {
+		padding: 1.1rem 0.75rem 2rem;
+	}
+
+	.split {
+		grid-template-columns: 1fr;
+	}
+
+	.actions {
+		flex-direction: column;
+	}
+}
