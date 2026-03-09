@@ -10,7 +10,6 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   DEFAULT_PROFILE,
   DEFAULT_REGION,
-  PROFILE_OPTIONS,
   REGION_OPTIONS,
 } from "@/app/config";
 import { logMessage, getLogMessages, clearLogMessages } from "@/lib/utils";
@@ -77,7 +76,8 @@ const defaultColumnSettings: ColumnSettings = {
 };
 
 export default function InactiveCollectorsPage() {
-  const [profile, setProfile] = useState("paws");
+  const [profiles, setProfiles] = useState<string[]>([]);
+  const [profile, setProfile] = useState(DEFAULT_PROFILE);
   const [region, setRegion] = useState(DEFAULT_REGION);
   const [accesskey, setAccesskey] = useState("");
   const [secretkey, setSecretkey] = useState("");
@@ -109,6 +109,24 @@ export default function InactiveCollectorsPage() {
     debugLog('InactiveCollectorsPage component mounted');
     logMessage('info', 'Component initialized with DEBUG enabled');
   }, []);
+  
+  // Fetch AWS profiles from API
+  useEffect(() => {
+    async function fetchProfiles() {
+      try {
+        const res = await fetch("/api/aws-profiles");
+        const data = await res.json();
+        setProfiles(data);
+        if (data.length > 0 && !data.includes(DEFAULT_PROFILE)) {
+          setProfile(data[0]);
+        }
+      } catch {
+        setProfiles([]);
+      }
+    }
+    fetchProfiles();
+  }, []);
+  
   // LocalStorage for token management
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -638,7 +656,7 @@ export default function InactiveCollectorsPage() {
                     onChange={(e) => setProfile(e.target.value)}
                     className="w-full"
                   >
-                    {PROFILE_OPTIONS.map(p => (
+                    {profiles.map(p => (
                       <option key={p} value={p}>{p}</option>
                     ))}
                   </Select>

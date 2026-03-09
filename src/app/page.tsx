@@ -148,8 +148,8 @@ export default function Home() {
   };
 
   const [collectorSummaryLoading, setCollectorSummaryLoading] = useState(false);
-  const [profile, setProfile] = useState("playground");
-  const [profiles, setProfiles] = useState<string[]>(["playground", "paws_integration","paws"]);
+  const [profile, setProfile] = useState(DEFAULT_PROFILE);
+  const [profiles, setProfiles] = useState<string[]>([]);
   const [region, setRegion] = useState("us-east-1");
   const [collectorSummary, setCollectorSummary] = useState<CollectorSummaryData>({
     collectorCounts: {},
@@ -512,15 +512,16 @@ export default function Home() {
     async function fetchProfiles() {
       try {
         const res = await fetch("/api/aws-profiles");
-        const data = (await res.json()).filter((p: string) =>
-          ["playground", "paws_integration", "paws"].includes(p)
-        ).sort((a: string, b: string) => {
-          const order = ["playground", "paws_integration", "paws"];
-          return order.indexOf(a) - order.indexOf(b);
-        });
-        //  const data = await res.json()
+        const data = await res.json();
         setProfiles(data);
-      } catch {}
+        // Set the profile to the first one if DEFAULT_PROFILE is not available
+        if (data.length > 0 && !data.includes(DEFAULT_PROFILE)) {
+          setProfile(data[0]);
+        }
+      } catch {
+        // Fallback to PROFILE_OPTIONS from config if API fails
+        setProfiles(PROFILE_OPTIONS);
+      }
     }
     fetchProfiles();
   }, []);

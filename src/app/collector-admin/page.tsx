@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-const PROFILE_OPTIONS = ["playground", "paws_integration", "paws"];
 const REGION_OPTIONS = ["us-east-1", "us-west-2", "eu-west-1"];
 
 export default function CollectorAdminPage() {
   const [collectorType, setCollectorType] = useState("o365");
-  const [profile, setProfile] = useState(PROFILE_OPTIONS[0]);
+  const [profiles, setProfiles] = useState<string[]>([]);
+  const [profile, setProfile] = useState("");
   const [region, setRegion] = useState(REGION_OPTIONS[0]);
   const [action, setAction] = useState("dump_sqs");
   const [batch, setBatch] = useState("");
@@ -18,6 +18,23 @@ export default function CollectorAdminPage() {
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+
+  // Fetch AWS profiles from API
+  useEffect(() => {
+    async function fetchProfiles() {
+      try {
+        const res = await fetch("/api/aws-profiles");
+        const data = await res.json();
+        setProfiles(data);
+        if (data.length > 0) {
+          setProfile(data[0]);
+        }
+      } catch {
+        setProfiles([]);
+      }
+    }
+    fetchProfiles();
+  }, []);
 
   async function fetchCollectors() {
     setLoading(true);
@@ -103,7 +120,7 @@ export default function CollectorAdminPage() {
         <div>
           <label>Profile: </label>
           <select value={profile} onChange={e => setProfile(e.target.value)} className="border px-2 py-1 w-full">
-            {PROFILE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            {profiles.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
         </div>
         <div>

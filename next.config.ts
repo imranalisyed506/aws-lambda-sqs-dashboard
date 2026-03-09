@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_DEBUG: process.env.DEBUG || 'false',
   },
+  experimental: {
+    turbopackUseSystemTlsCerts: true,
+  },
 };
 
 export default nextConfig;

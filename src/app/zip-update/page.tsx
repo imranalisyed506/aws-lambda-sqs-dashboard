@@ -1,11 +1,9 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Table, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Alert } from "@/components/ui/alert";
-
-import { PROFILE_OPTIONS } from "../config";
 
 export default function ZipUpdatePage() {
   const [zipFiles, setZipFiles] = useState<string[]>([]);
@@ -17,9 +15,27 @@ export default function ZipUpdatePage() {
   const [showAlert, setShowAlert] = useState(false);
   const [alertType, setAlertType] = useState<"success"|"error">("success");
   const [loading, setLoading] = useState(false);
-  const [profileS3, setProfileS3] = useState(PROFILE_OPTIONS[0]);
-  const [profileLambda, setProfileLambda] = useState(PROFILE_OPTIONS[1] || PROFILE_OPTIONS[0]);
-  const profiles = PROFILE_OPTIONS;
+  const [profiles, setProfiles] = useState<string[]>([]);
+  const [profileS3, setProfileS3] = useState("");
+  const [profileLambda, setProfileLambda] = useState("");
+
+  // Fetch AWS profiles from API
+  useEffect(() => {
+    async function fetchProfiles() {
+      try {
+        const res = await fetch("/api/aws-profiles");
+        const data = await res.json();
+        setProfiles(data);
+        if (data.length > 0) {
+          setProfileS3(data[0]);
+          setProfileLambda(data[1] || data[0]);
+        }
+      } catch {
+        setProfiles([]);
+      }
+    }
+    fetchProfiles();
+  }, []);
 
   async function fetchZipFiles() {
     setLoading(true);

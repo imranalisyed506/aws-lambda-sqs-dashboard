@@ -20,7 +20,6 @@ interface CollectorSqsData {
   }>;
 }
 
-const PROFILE_OPTIONS = ["playground", "paws_integration", "paws"];
 const REGION_OPTIONS = ["us-east-1"];
 
 export default function SqsMessageCountPage() {
@@ -30,11 +29,29 @@ export default function SqsMessageCountPage() {
   const [countLoading, setCountLoading] = useState<{ [key: string]: boolean }>({});
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
-  const [profile, setProfile] = useState(PROFILE_OPTIONS[0]);
+  const [profiles, setProfiles] = useState<string[]>([]);
+  const [profile, setProfile] = useState("");
   const [region, setRegion] = useState(REGION_OPTIONS[0]);
   const [summary, setSummary] = useState<any>(null);
   const [selectedCollectorType, setSelectedCollectorType] = useState<string>("");
   const [searchTriggered, setSearchTriggered] = useState(false);
+
+  // Fetch AWS profiles from API
+  useEffect(() => {
+    async function fetchProfiles() {
+      try {
+        const res = await fetch("/api/aws-profiles");
+        const data = await res.json();
+        setProfiles(data);
+        if (data.length > 0) {
+          setProfile(data[0]);
+        }
+      } catch {
+        setProfiles([]);
+      }
+    }
+    fetchProfiles();
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -141,7 +158,7 @@ export default function SqsMessageCountPage() {
             className="min-w-[70px] text-xs py-1 px-2"
             disabled={loading}
           >
-            {PROFILE_OPTIONS.map(p => (
+            {profiles.map(p => (
               <option key={p} value={p}>{p}</option>
             ))}
           </Select>

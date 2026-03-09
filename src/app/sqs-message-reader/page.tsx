@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-const PROFILE_OPTIONS = ["paws_integration", "paws"];
 const REGION_OPTIONS = ["us-east-1", "us-west-2", "eu-west-1"];
 
 interface MessageData {
@@ -43,7 +42,8 @@ interface MessageData {
 
 export default function SqsMessageReaderPage() {
   const [collectorType, setCollectorType] = useState("o365");
-  const [profile, setProfile] = useState(PROFILE_OPTIONS[0]);
+  const [profiles, setProfiles] = useState<string[]>([]);
+  const [profile, setProfile] = useState("");
   const [region, setRegion] = useState(REGION_OPTIONS[0]);
   const [descriptionFilter, setDescriptionFilter] = useState("Alert Logic Poll based collector");
   const [loading, setLoading] = useState(false);
@@ -66,6 +66,23 @@ export default function SqsMessageReaderPage() {
   } | null>(null);
   const [viewMode, setViewMode] = useState<'summary' | 'detailed'>('summary');
   const [expandedCollectors, setExpandedCollectors] = useState<Set<string>>(new Set());
+
+  // Fetch AWS profiles from API
+  useEffect(() => {
+    async function fetchProfiles() {
+      try {
+        const res = await fetch("/api/aws-profiles");
+        const data = await res.json();
+        setProfiles(data);
+        if (data.length > 0) {
+          setProfile(data[0]);
+        }
+      } catch {
+        setProfiles([]);
+      }
+    }
+    fetchProfiles();
+  }, []);
 
   // Load saved credentials from localStorage on component mount
   useEffect(() => {
@@ -485,7 +502,7 @@ export default function SqsMessageReaderPage() {
             onChange={e => setProfile(e.target.value)} 
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {PROFILE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            {profiles.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
         </div>
         <div>

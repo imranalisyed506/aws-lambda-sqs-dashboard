@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Lambda SQS Dashboard - Project Presentation</title>
+    <style>
+        :root {
+            --bg-1: #0f172a;
+            --bg-2: #1d4ed8;
+            --bg-3: #0891b2;
+            --ink: #1e293b;
+            --muted: #64748b;
+            --primary: #4f46e5;
+            --primary-2: #6366f1;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background:
+                radial-gradient(1200px 500px at 10% 0%, rgba(99, 102, 241, 0.28), transparent 60%),
+                radial-gradient(1200px 500px at 100% 100%, rgba(6, 182, 212, 0.22), transparent 60%),
+                linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 45%, var(--bg-3) 100%);
+            overflow-x: hidden;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+            height: 100vh;
+        }
+        
+        body::-webkit-scrollbar {
+            display: none;
+        }
+        
+        body {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .slide {
+            width: 100vw;
+            min-height: 100vh;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+            position: relative;
+        }
+        
+        .slide-content {
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: 18px;
+            padding: 32px 48px;
+            max-width: 1200px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 18px 45px rgba(2, 6, 23, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(4px);
+        }
+        
+        .slide-content::-webkit-scrollbar {
+            display: none;
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            color: var(--primary);
+            margin-bottom: 12px;
+            text-align: center;
+            letter-spacing: -0.02em;
+        }
+        
+        h2 {
+            font-size: 2rem;
+            color: var(--primary);
+            margin-bottom: 16px;
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 8px;
+            letter-spacing: -0.01em;
+        }
+        
+        h3 {
+            font-size: 1.4rem;
+            color: var(--primary-2);
+            margin-top: 16px;
+            margin-bottom: 8px;
+        }
+        
+        p, li {
+            font-size: 1rem;
+            line-height: 1.5;
+            color: var(--ink);
+            margin-bottom: 8px;
+        }
+        
+        ul {
+            list-style-position: inside;
+            padding-left: 20px;
+        }
+        
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .tech-item {
+            background: linear-gradient(135deg, #4f46e5 0%, #0ea5e9 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1rem;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+        }
+        
+        .subtitle {
+            font-size: 1.15rem;
+            color: var(--muted);
+            text-align: center;
+            margin-bottom: 22px;
+        }
+        
+        .fullscreen-btn {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.92);
+            border: none;
+            padding: 5px 8px;
+            border-radius: 7px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.28);
+            transition: transform 0.2s;
+            z-index: 1000;
+        }
+        
+        .fullscreen-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .feature-card {
+            background: var(--surface-soft);
+            padding: 12px;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+            box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.08);
+        }
+        
+        .feature-card h4 {
+            color: var(--primary);
+            font-size: 1rem;
+            margin-bottom: 6px;
+        }
+        
+        .feature-card p {
+            font-size: 0.9rem;
+            margin-bottom: 0;
+            line-height: 1.35;
+        }
+        
+        .center-svg {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 16px 0;
+        }
+
+        @media (max-height: 820px) {
+            .slide {
+                padding: 28px;
+            }
+            .slide-content {
+                padding: 24px 36px;
+                max-height: 76vh;
+            }
+            h1 { font-size: 2.4rem; }
+            h2 { font-size: 1.7rem; }
+            h3 { font-size: 1.2rem; }
+            p, li { font-size: 0.95rem; }
+            .subtitle { font-size: 1rem; }
+            .tech-item { font-size: 0.95rem; padding: 12px; }
+            .feature-card p { font-size: 0.85rem; }
+        }
+        
+        svg {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .navigation {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+        
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.92);
+            border: none;
+            padding: 6px 10px;
+            border-radius: 7px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.28);
+            transition: transform 0.2s;
+        }
+        
+        .nav-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .slide-number {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: rgba(255, 255, 255, 0.92);
+            padding: 5px 8px;
+            border-radius: 7px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.28);
+        }
+
+        .compact-slide h3 {
+            margin-top: 12px;
+            margin-bottom: 6px;
+        }
+
+        .compact-slide ul {
+            margin-bottom: 8px;
+        }
+
+        .compact-slide li {
+            font-size: 0.95rem;
+            line-height: 1.45;
+            margin-bottom: 6px;
+        }
+
+        .compact-note {
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .compact-svg svg {
+            width: 420px;
+            height: auto;
+        }
+
+        .title-svg {
+            width: 280px;
+            height: auto;
+            display: block;
+        }
+        
+        @media print {
+            body {
+                scroll-snap-type: none;
+            }
+            .slide {
+                page-break-after: always;
+                height: auto;
+                min-height: 100vh;
+                scroll-snap-align: none;
+            }
+            .slide-content {
+                max-height: none;
+                overflow: visible;
+            }
+            .navigation, .slide-number, .fullscreen-btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="fullscreen-btn" id="fullscreenBtn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+    <div class="slide-number" id="slideNumber">1 / 11</div>
+    
+    <!-- Slide 1: Title -->
+    <div class="slide" id="slide1">
+        <div class="slide-content">
+            <h1>AWS Lambda SQS Dashboard</h1>
+            <p class="subtitle">Comprehensive Management Platform for AWS Lambda Functions and SQS Queues</p>
+            
+            <div class="center-svg">
+                <svg class="title-svg" width="280" height="210" viewBox="0 0 400 300">
+                    <!-- AWS Lambda Icon -->
+                    <rect x="50" y="100" width="80" height="80" fill="#FF9900" rx="10"/>
+                    <text x="90" y="150" fill="white" font-size="15" font-weight="bold" text-anchor="middle">Lambda</text>
+                    
+                    <!-- SQS Icon -->
+                    <rect x="270" y="100" width="80" height="80" fill="#FF4F8B" rx="10"/>
+                    <text x="310" y="150" fill="white" font-size="15" font-weight="bold" text-anchor="middle">SQS</text>
+                    
+                    <!-- Dashboard Icon (Center) -->
+                    <circle cx="200" cy="140" r="50" fill="#4F46E5"/>
+                    <text x="200" y="150" fill="white" font-size="16" font-weight="bold" text-anchor="middle">Dashboard</text>
+                    
+                    <!-- Arrow marker for crisp, aligned connectors -->
+                    <defs>
+                        <marker id="title-arrow" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L7,3.5 L0,7 Z" fill="#4f46e5"/>
+                        </marker>
+                    </defs>
+
+                    <!-- Connection Lines (inward arrows to center node) -->
+                    <line x1="130" y1="140" x2="150" y2="140" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round" marker-end="url(#title-arrow)"/>
+                    <line x1="270" y1="140" x2="250" y2="140" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round" marker-end="url(#title-arrow)"/>
+                </svg>
+            </div>
+            
+        </div>
+    </div>
+    
+    <!-- Slide 2: Project Overview -->
+    <div class="slide" id="slide2">
+        <div class="slide-content">
+            <h2>Project Overview</h2>
+            
+            <h3>What is it?</h3>
+            <p>A modern, full-stack web application for managing AWS Lambda functions, SQS queues, and Alert Logic collectors across multiple AWS profiles and regions.</p>
+            
+            <h3>Key Capabilities</h3>
+            <ul>
+                <li><strong>Multi-Account Management:</strong> Switch between AWS profiles dynamically</li>
+                <li><strong>Real-time Monitoring:</strong> View Lambda functions, SQS queues, and collector status</li>
+                <li><strong>Deployment Management:</strong> Update Lambda code from S3 zip files</li>
+                <li><strong>Queue Operations:</strong> Poll messages, toggle triggers, manage visibility timeouts</li>
+                <li><strong>CloudWatch Integration:</strong> View logs directly in the dashboard</li>
+                <li><strong>Collector Administration:</strong> Manage Alert Logic collectors and inactive users</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Slide 3: Tech Stack -->
+    <div class="slide" id="slide3">
+        <div class="slide-content">
+            <h2>Technology Stack</h2>
+            
+            <div class="center-svg">
+                <svg width="600" height="200" viewBox="0 0 600 200">
+                    <!-- Frontend Layer -->
+                    <rect x="50" y="20" width="500" height="50" fill="#6366F1" rx="8"/>
+                    <text x="300" y="50" fill="white" font-size="18" font-weight="bold" text-anchor="middle">
+                        Frontend: Next.js 15 + React 19 + TypeScript
+                    </text>
+                    
+                    <!-- UI Layer -->
+                    <rect x="50" y="80" width="500" height="50" fill="#8B5CF6" rx="8"/>
+                    <text x="300" y="110" fill="white" font-size="18" font-weight="bold" text-anchor="middle">
+                        UI: shadcn/ui + Tailwind CSS 4
+                    </text>
+                    
+                    <!-- Backend Layer -->
+                    <rect x="50" y="140" width="500" height="50" fill="#EC4899" rx="8"/>
+                    <text x="300" y="170" fill="white" font-size="18" font-weight="bold" text-anchor="middle">
+                        Backend: AWS SDK v3 (Lambda, SQS, S3, CloudWatch)
+                    </text>
+                </svg>
+            </div>
+            
+            <div class="tech-stack">
+                <div class="tech-item">Next.js 15</div>
+                <div class="tech-item">React 19</div>
+                <div class="tech-item">TypeScript 5</div>
+                <div class="tech-item">AWS SDK v3</div>
+                <div class="tech-item">Tailwind CSS 4</div>
+                <div class="tech-item">shadcn/ui</div>
+                <div class="tech-item">Radix UI</div>
+                <div class="tech-item">Lucide Icons</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 4: Architecture -->
+    <div class="slide" id="slide4">
+        <div class="slide-content">
+            <h2>System Architecture</h2>
+            
+            <div class="center-svg">
+                <svg width="700" height="400" viewBox="0 0 700 400">
+                    <!-- User -->
+                    <circle cx="350" cy="30" r="25" fill="#4F46E5"/>
+                    <text x="350" y="38" fill="white" font-size="14" font-weight="bold" text-anchor="middle">User</text>
+                    
+                    <!-- Next.js Frontend -->
+                    <rect x="250" y="80" width="200" height="60" fill="#6366F1" rx="8"/>
+                    <text x="350" y="115" fill="white" font-size="16" font-weight="bold" text-anchor="middle">Next.js Frontend</text>
+                    
+                    <!-- API Routes -->
+                    <rect x="250" y="170" width="200" height="60" fill="#8B5CF6" rx="8"/>
+                    <text x="350" y="205" fill="white" font-size="16" font-weight="bold" text-anchor="middle">API Routes</text>
+                    
+                    <!-- AWS SDK Client Cache -->
+                    <rect x="250" y="260" width="200" height="60" fill="#A855F7" rx="8"/>
+                    <text x="350" y="295" fill="white" font-size="16" font-weight="bold" text-anchor="middle">AWS SDK Client Cache</text>
+                    
+                    <!-- AWS Services -->
+                    <rect x="50" y="350" width="120" height="40" fill="#FF9900" rx="6"/>
+                    <text x="110" y="375" fill="white" font-size="14" font-weight="bold" text-anchor="middle">Lambda</text>
+                    
+                    <rect x="190" y="350" width="120" height="40" fill="#FF4F8B" rx="6"/>
+                    <text x="250" y="375" fill="white" font-size="14" font-weight="bold" text-anchor="middle">SQS</text>
+                    
+                    <rect x="330" y="350" width="120" height="40" fill="#3B82F6" rx="6"/>
+                    <text x="390" y="375" fill="white" font-size="14" font-weight="bold" text-anchor="middle">S3</text>
+                    
+                    <rect x="470" y="350" width="120" height="40" fill="#10B981" rx="6"/>
+                    <text x="530" y="375" fill="white" font-size="14" font-weight="bold" text-anchor="middle">CloudWatch</text>
+                    
+                    <!-- Connection Lines -->
+                    <line x1="350" y1="55" x2="350" y2="80" stroke="#667eea" stroke-width="3"/>
+                    <line x1="350" y1="140" x2="350" y2="170" stroke="#667eea" stroke-width="3"/>
+                    <line x1="350" y1="230" x2="350" y2="260" stroke="#667eea" stroke-width="3"/>
+                    
+                    <line x1="300" y1="320" x2="110" y2="350" stroke="#667eea" stroke-width="2"/>
+                    <line x1="320" y1="320" x2="250" y2="350" stroke="#667eea" stroke-width="2"/>
+                    <line x1="350" y1="320" x2="390" y2="350" stroke="#667eea" stroke-width="2"/>
+                    <line x1="380" y1="320" x2="530" y2="350" stroke="#667eea" stroke-width="2"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 5: Core Features -->
+    <div class="slide" id="slide5">
+        <div class="slide-content">
+            <h2>Core Features</h2>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🎯 Lambda Dashboard</h4>
+                    <p>View, filter, and manage Lambda functions with sortable tables, pagination, and real-time updates</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>📦 Zip Update</h4>
+                    <p>Upload Lambda code from S3 zip files with status tracking and deployment history</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>📊 SQS Management</h4>
+                    <p>Poll messages, check queue counts, toggle triggers, and manage visibility timeouts</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>📝 CloudWatch Logs</h4>
+                    <p>View recent Lambda execution logs directly in the dashboard</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>⚙️ Collector Admin</h4>
+                    <p>Manage Alert Logic collectors with configuration updates and SQS monitoring</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>🔍 Inactive Collectors</h4>
+                    <p>Identify and manage collectors for inactive Alert Logic users</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>🌎 Multi-Region Support</h4>
+                    <p>Switch between AWS regions seamlessly</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>👤 Dynamic Profiles</h4>
+                    <p>Automatically load AWS profiles from ~/.aws/credentials</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 6: Performance Optimizations -->
+    <div class="slide" id="slide6">
+        <div class="slide-content compact-slide">
+            <h2>Performance Optimizations</h2>
+            
+            <h3>AWS SDK v3 Optimizations</h3>
+            <ul>
+                <li><strong>Client Caching:</strong> Reuse AWS SDK clients for connection pooling</li>
+                <li><strong>Intelligent Polling:</strong> Check queue counts before polling SQS</li>
+                <li><strong>Timeouts + Retries:</strong> 3s connection, 30s socket, limited attempts</li>
+            </ul>
+            
+            <h3>Frontend Optimizations</h3>
+            <ul>
+                <li><strong>Memoization:</strong> useMemo/useCallback for heavy renders</li>
+                <li><strong>Debounced Search:</strong> Reduce unnecessary API calls</li>
+                <li><strong>Pagination:</strong> Limit data displayed per page (50 items)</li>
+            </ul>
+            
+            <div class="center-svg compact-svg">
+                <svg width="500" height="150" viewBox="0 0 500 150">
+                    <rect x="50" y="50" width="150" height="60" fill="#10B981" rx="8"/>
+                    <text x="125" y="85" fill="white" font-size="14" font-weight="bold" text-anchor="middle">Before: 5+ min</text>
+                    
+                    <text x="250" y="85" font-size="32" font-weight="bold" fill="#4F46E5">→</text>
+                    
+                    <rect x="300" y="50" width="150" height="60" fill="#4F46E5" rx="8"/>
+                    <text x="375" y="85" fill="white" font-size="14" font-weight="bold" text-anchor="middle">After: 5-10 sec</text>
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 7: Workflow Example -->
+    <div class="slide" id="slide7">
+        <div class="slide-content">
+            <h2>Workflow Example: Lambda Update</h2>
+            
+            <div class="center-svg">
+                <svg width="600" height="350" viewBox="0 0 600 350">
+                    <!-- Step 1 -->
+                    <circle cx="100" cy="50" r="30" fill="#4F46E5"/>
+                    <text x="100" y="58" fill="white" font-size="18" font-weight="bold" text-anchor="middle">1</text>
+                    <text x="100" y="100" font-size="14" font-weight="600" text-anchor="middle">Select Profile</text>
+                    <text x="100" y="120" font-size="14" text-anchor="middle">& Region</text>
+                    
+                    <!-- Step 2 -->
+                    <circle cx="250" cy="50" r="30" fill="#6366F1"/>
+                    <text x="250" y="58" fill="white" font-size="18" font-weight="bold" text-anchor="middle">2</text>
+                    <text x="250" y="100" font-size="14" font-weight="600" text-anchor="middle">Browse Zip Files</text>
+                    <text x="250" y="120" font-size="14" text-anchor="middle">from S3</text>
+                    
+                    <!-- Step 3 -->
+                    <circle cx="400" cy="50" r="30" fill="#8B5CF6"/>
+                    <text x="400" y="58" fill="white" font-size="18" font-weight="bold" text-anchor="middle">3</text>
+                    <text x="400" y="100" font-size="14" font-weight="600" text-anchor="middle">Select Lambda</text>
+                    <text x="400" y="120" font-size="14" text-anchor="middle">Functions</text>
+                    
+                    <!-- Step 4 -->
+                    <circle cx="250" cy="200" r="30" fill="#A855F7"/>
+                    <text x="250" y="208" fill="white" font-size="18" font-weight="bold" text-anchor="middle">4</text>
+                    <text x="250" y="250" font-size="14" font-weight="600" text-anchor="middle">Update Code</text>
+                    <text x="250" y="270" font-size="14" text-anchor="middle">& Wait for Completion</text>
+                    
+                    <!-- Step 5 -->
+                    <circle cx="250" cy="300" r="30" fill="#10B981"/>
+                    <text x="250" y="308" fill="white" font-size="18" font-weight="bold" text-anchor="middle">✓</text>
+                    
+                    <!-- Arrows -->
+                    <line x1="130" y1="50" x2="220" y2="50" stroke="#667eea" stroke-width="2" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+                    <line x1="280" y1="50" x2="370" y2="50" stroke="#667eea" stroke-width="2" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+                    <line x1="400" y1="80" x2="280" y2="170" stroke="#667eea" stroke-width="2" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+                    <line x1="250" y1="230" x2="250" y2="270" stroke="#667eea" stroke-width="2" stroke-linecap="round" marker-end="url(#arrowhead)"/>
+                    
+                    <defs>
+                        <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L8,4 L0,8 Z" fill="#667eea"/>
+                        </marker>
+                    </defs>
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 8: Delivery Timeline -->
+    <div class="slide" id="slide8">
+        <div class="slide-content">
+            <h2>Delivery Timeline & Effort</h2>
+            
+            <h3>Estimated Build Time (Solo Developer)</h3>
+            <ul>
+                <li><strong>Without LLM assistance:</strong> 6-10 weeks</li>
+                <li><strong>With LLM assistance:</strong> 3-6 weeks</li>
+            </ul>
+            
+            <h3>Typical Breakdown</h3>
+            <ul>
+                <li><strong>Discovery & design:</strong> 3-5 days</li>
+                <li><strong>API routes & AWS SDK integration:</strong> 1-2 weeks</li>
+                <li><strong>Core UI & data tables:</strong> 1-2 weeks</li>
+                <li><strong>Feature workflows (Zip update, SQS tools):</strong> 1-2 weeks</li>
+                <li><strong>Collector admin & inactive collectors:</strong> 4-7 days</li>
+                <li><strong>Testing & polishing:</strong> 1-2 weeks</li>
+            </ul>
+            
+            <p><strong>Team option:</strong> 2 developers can deliver in ~3-5 weeks with parallel workstreams.</p>
+        </div>
+    </div>
+    
+    <!-- Slide 9: Testing Strategy -->
+    <div class="slide" id="slide9">
+        <div class="slide-content">
+            <h2>Testing Strategy</h2>
+            
+            <h3>Test Layers</h3>
+            <ul>
+                <li><strong>Unit:</strong> Data formatters, AWS helpers, table filters, pagination logic</li>
+                <li><strong>Integration:</strong> API routes with mocked AWS SDK v3 clients</li>
+                <li><strong>E2E:</strong> User flows across dashboard, SQS tools, and zip update</li>
+            </ul>
+            
+            <h3>Suggested E2E Coverage</h3>
+            <ul>
+                <li>Load dashboard and list Lambda functions</li>
+                <li>Change profile and region and refresh data</li>
+                <li>Open Lambda details flyout and load logs</li>
+                <li>Toggle SQS triggers and verify status updates</li>
+                <li>Zip update: fetch zip files, select Lambda, deploy</li>
+                <li>Collector admin: search, update config, view results</li>
+            </ul>
+            
+            <p><strong>Tools:</strong> Playwright or Cypress for E2E, Jest or Vitest for unit/integration.</p>
+        </div>
+    </div>
+    
+    <!-- Slide 10: LLM Impact Comparison -->
+    <div class="slide" id="slide10">
+        <div class="slide-content">
+            <h2>LLM Impact Comparison</h2>
+            
+            <h3>Estimated Productivity Gains</h3>
+            <ul>
+                <li><strong>Boilerplate speed:</strong> 2-4x faster for UI scaffolding and API routes</li>
+                <li><strong>Documentation:</strong> 3-5x faster for guides and patterns</li>
+                <li><strong>Refactors:</strong> 1.5-2x faster for repetitive changes</li>
+            </ul>
+            
+            <h3>Quality Considerations</h3>
+            <ul>
+                <li><strong>Requires review:</strong> Validate AWS permissions and API correctness</li>
+                <li><strong>Testing still required:</strong> LLMs do not replace E2E validation</li>
+                <li><strong>Best use:</strong> Generate structure, then refine with domain context</li>
+            </ul>
+            
+            <p><strong>Net result:</strong> Faster delivery with maintained quality when paired with strong review and tests.</p>
+        </div>
+    </div>
+    
+    <!-- Slide 11: Key Takeaways -->
+    <div class="slide" id="slide11">
+        <div class="slide-content compact-slide">
+            <h2>Key Takeaways</h2>
+            
+            <h3>✅ Benefits</h3>
+            <ul>
+                <li><strong>Centralized Management:</strong> Single dashboard for all AWS Lambda and SQS operations</li>
+                <li><strong>Performance:</strong> 50x faster SQS operations with intelligent polling</li>
+                <li><strong>Multi-Account:</strong> Seamless switching between AWS profiles and regions</li>
+                <li><strong>Modern Stack:</strong> Next.js 15, React 19, AWS SDK v3</li>
+                <li><strong>Type Safety:</strong> TypeScript-first APIs and UI</li>
+            </ul>
+            
+            <h3>🚀 Future Enhancements</h3>
+            <ul>
+                <li>DynamoDB table viewer and editor</li>
+                <li>Lambda function creation wizard</li>
+                <li>Automated deployment pipelines</li>
+                <li>Real-time websocket updates</li>
+            </ul>
+            
+            <div style="text-align: center; margin-top: 12px; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px;">
+                <h3 style="color: white; margin: 0 0 4px 0; font-size: 1.05rem;">Thank You!</h3>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Navigation -->
+    <div class="navigation">
+        <button class="nav-btn" onclick="previousSlide()">← Previous</button>
+        <button class="nav-btn" onclick="nextSlide()">Next →</button>
+    </div>
+    
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 11;
+        
+        function updateSlideNumber() {
+            document.getElementById('slideNumber').textContent = `${currentSlide} / ${totalSlides}`;
+        }
+        
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                currentSlide++;
+                document.getElementById(`slide${currentSlide}`).scrollIntoView({ behavior: 'smooth' });
+                updateSlideNumber();
+            }
+        }
+        
+        function previousSlide() {
+            if (currentSlide > 1) {
+                currentSlide--;
+                document.getElementById(`slide${currentSlide}`).scrollIntoView({ behavior: 'smooth' });
+                updateSlideNumber();
+            }
+        }
+        
+        // Fullscreen functionality
+        function toggleFullscreen() {
+            const elem = document.documentElement;
+            const btn = document.getElementById('fullscreenBtn');
+            
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement) {
+                // Enter fullscreen
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen();
+                } else if (elem.webkitRequestFullscreen) {
+                    elem.webkitRequestFullscreen();
+                } else if (elem.mozRequestFullScreen) {
+                    elem.mozRequestFullScreen();
+                } else if (elem.msRequestFullscreen) {
+                    elem.msRequestFullscreen();
+                }
+                btn.textContent = '⛶ Exit Fullscreen';
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                btn.textContent = '⛶ Fullscreen';
+            }
+        }
+        
+        // Update button text when fullscreen changes
+        document.addEventListener('fullscreenchange', updateFullscreenButton);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+        document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+        
+        function updateFullscreenButton() {
+            const btn = document.getElementById('fullscreenBtn');
+            if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) {
+                btn.textContent = '⛶ Exit Fullscreen';
+            } else {
+                btn.textContent = '⛶ Fullscreen';
+            }
+        }
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                previousSlide();
+            } else if (e.key === 'f' || e.key === 'F') {
+                e.preventDefault();
+                toggleFullscreen();
+            } else if (e.key === 'Escape') {
+                // Escape key handled by browser for fullscreen exit
+                updateFullscreenButton();
+            }
+        });
+        
+        // Detect scroll position to update slide number
+        let isScrolling;
+        window.addEventListener('scroll', () => {
+            clearTimeout(isScrolling);
+            isScrolling = setTimeout(() => {
+                const scrollPosition = window.scrollY;
+                const slideHeight = window.innerHeight;
+                const calculatedSlide = Math.round(scrollPosition / slideHeight) + 1;
+                if (calculatedSlide !== currentSlide && calculatedSlide >= 1 && calculatedSlide <= totalSlides) {
+                    currentSlide = calculatedSlide;
+                    updateSlideNumber();
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
